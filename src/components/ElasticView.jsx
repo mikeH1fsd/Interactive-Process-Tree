@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 export default function ElasticView() {
+  const [pasteMode, setPasteMode] = useState('process');
   const [inputText, setInputText] = useState('');
   const [nodes, setNodes] = useState({});
   const [queryOutput, setQueryOutput] = useState(null);
@@ -62,6 +63,95 @@ export default function ElasticView() {
     
     lines.forEach(line => {
       if (!line.trim()) return;
+
+      if (pasteMode === 'network') {
+        let parts = line.split('\t');
+        if (parts.length < 4) parts = line.split(/\s{2,}/);
+        if (parts.length < 4) parts = line.trim().split(/\s+/);
+        
+        if (parts.length >= 4) {
+          const processName = parts[0].trim();
+          const pid = parts[1].replace(/,/g, '').trim();
+          const srcIp = parts[2].trim();
+          const destIp = parts[3].trim();
+          const extraCols = parts.slice(4).join(' ');
+          
+          const processId = `${processName}_${pid}`;
+          if (!currentNodes[processId]) {
+            currentNodes[processId] = { id: processId, name: processName, pid: pid, time: '', extra: '', children: [], parents: [], networkEvents: [], fileEvents: [] };
+          }
+          if (!currentNodes[processId].networkEvents) {
+            currentNodes[processId].networkEvents = [];
+          }
+          currentNodes[processId].networkEvents.push({ srcIp, destIp, extra: extraCols });
+        }
+        return;
+      } else if (pasteMode === 'file') {
+        let parts = line.split('\t');
+        if (parts.length < 4) parts = line.split(/\s{2,}/);
+        
+        if (parts.length >= 4) {
+          const timestamp = parts[0].trim();
+          const processName = parts[1].trim();
+          const pid = parts[2].replace(/,/g, '').trim();
+          const filePath = parts[3].trim();
+          const extraCols = parts.slice(4).join(' ');
+          
+          const processId = `${processName}_${pid}`;
+          if (!currentNodes[processId]) {
+            currentNodes[processId] = { id: processId, name: processName, pid: pid, time: '', extra: '', children: [], parents: [], networkEvents: [], fileEvents: [], dnsEvents: [] };
+          }
+          if (!currentNodes[processId].fileEvents) {
+            currentNodes[processId].fileEvents = [];
+          }
+          currentNodes[processId].fileEvents.push({ timestamp, filePath, extra: extraCols });
+        }
+        return;
+      } else if (pasteMode === 'dns') {
+        let parts = line.split('\t');
+        if (parts.length < 4) parts = line.split(/\s{2,}/);
+        if (parts.length < 4) parts = line.trim().split(/\s+/);
+        
+        if (parts.length >= 4) {
+          const processName = parts[0].trim();
+          const pid = parts[1].replace(/,/g, '').trim();
+          const dnsQuestion = parts[2].trim();
+          const dnsIp = parts[3].trim();
+          const extraCols = parts.slice(4).join(' ');
+          
+          const processId = `${processName}_${pid}`;
+          if (!currentNodes[processId]) {
+            currentNodes[processId] = { id: processId, name: processName, pid: pid, time: '', extra: '', children: [], parents: [], networkEvents: [], fileEvents: [], dnsEvents: [], regEvents: [] };
+          }
+          if (!currentNodes[processId].dnsEvents) {
+            currentNodes[processId].dnsEvents = [];
+          }
+          currentNodes[processId].dnsEvents.push({ dnsQuestion, dnsIp, extra: extraCols });
+        }
+        return;
+      } else if (pasteMode === 'registry') {
+        let parts = line.split('\t');
+        if (parts.length < 5) parts = line.split(/\s{2,}/);
+        
+        if (parts.length >= 5) {
+          const timestamp = parts[0].trim();
+          const processName = parts[1].trim();
+          const pid = parts[2].replace(/,/g, '').trim();
+          const regPath = parts[3].trim();
+          const regData = parts[4].trim();
+          const extraCols = parts.slice(5).join(' ');
+          
+          const processId = `${processName}_${pid}`;
+          if (!currentNodes[processId]) {
+            currentNodes[processId] = { id: processId, name: processName, pid: pid, time: '', extra: '', children: [], parents: [], networkEvents: [], fileEvents: [], dnsEvents: [], regEvents: [] };
+          }
+          if (!currentNodes[processId].regEvents) {
+            currentNodes[processId].regEvents = [];
+          }
+          currentNodes[processId].regEvents.push({ timestamp, regPath, regData, extra: extraCols });
+        }
+        return;
+      }
       
       let time, parentName, parentPid, processName, processPid, extraCols = '';
 
@@ -100,10 +190,10 @@ export default function ElasticView() {
       const processId = `${processName}_${processPid}`;
       
       if (!currentNodes[parentId]) {
-        currentNodes[parentId] = { id: parentId, name: parentName, pid: parentPid, time: '', extra: '', children: [], parents: [] };
+        currentNodes[parentId] = { id: parentId, name: parentName, pid: parentPid, time: '', extra: '', children: [], parents: [], networkEvents: [], fileEvents: [], dnsEvents: [], regEvents: [] };
       }
       if (!currentNodes[processId]) {
-        currentNodes[processId] = { id: processId, name: processName, pid: processPid, time: time, extra: extraCols, children: [], parents: [] };
+        currentNodes[processId] = { id: processId, name: processName, pid: processPid, time: time, extra: extraCols, children: [], parents: [], networkEvents: [], fileEvents: [], dnsEvents: [], regEvents: [] };
       } else {
         if (time && !currentNodes[processId].time) {
             currentNodes[processId].time = time;
@@ -133,35 +223,249 @@ export default function ElasticView() {
     return { elastic };
   };
 
-  const generateBulkQueries = (nodesList) => {
-    if (!nodesList || nodesList.length === 0) return null;
-    const validNodes = nodesList.filter(n => n.pid !== '-' && n.name !== '-');
-    if (validNodes.length === 0) return { elastic: "No valid nodes" };
-
-    const elasticConditions = validNodes.map(n => 
-      `((${config.processId}:"${n.pid}" and ${config.image}:"${n.name}") or (${config.parentPid}:"${n.pid}" and ${config.parentImage}:"${n.name}"))`
-    ).join(' or ');
-
-    const elastic = `${config.eventCodeField}:"${config.eventCodeValue}" and (${elasticConditions})`;
-    return { elastic };
-  };
-
   const handleBulkExpand = () => {
     const nodeVals = Object.values(nodes);
-    const boundaryNodes = new Map();
     
+    const rootNodes = [];
+    const leafNodes = [];
+
     nodeVals.forEach(n => {
-      if (n.children.length === 0 || n.parents.length === 0) {
-        boundaryNodes.set(n.id, n);
+      if (n.pid !== '-' && n.name !== '-') {
+        if (n.parents.length === 0) {
+          rootNodes.push(n);
+        } else if (n.children.length === 0) {
+          leafNodes.push(n);
+        }
       }
     });
 
-    const list = Array.from(boundaryNodes.values());
-    const result = generateBulkQueries(list);
-    if (result) {
-       setQueryForm({ name: 'Boundary Nodes', pid: 'ALL' });
-       setQueryOutput(result);
+    if (rootNodes.length === 0 && leafNodes.length === 0) return;
+
+    const rootConditions = rootNodes.map(n => 
+      `((${config.processId}:"${n.pid}" and ${config.image}:"${n.name}") or (${config.parentPid}:"${n.pid}" and ${config.parentImage}:"${n.name}"))`
+    );
+
+    const leafConditions = leafNodes.map(n => 
+      `(${config.parentPid}:"${n.pid}" and ${config.parentImage}:"${n.name}")`
+    );
+
+    const allConditions = [...rootConditions, ...leafConditions];
+    const elastic = `${config.eventCodeField}:"${config.eventCodeValue}" and (${allConditions.join(' or ')})`;
+
+    setQueryForm({ name: 'Boundary Nodes', pid: 'ALL' });
+    setQueryOutput({ elastic });
+  };
+
+  const handleBulkNetwork = () => {
+    const nodeVals = Object.values(nodes);
+    const validNodes = nodeVals.filter(n => n.pid !== '-' && n.name !== '-');
+    if (validNodes.length === 0) return;
+
+    // Deduplicate by Name + PID to prevent duplicate OR clauses
+    const uniqueNodes = [];
+    const seen = new Set();
+    validNodes.forEach(n => {
+      const key = `${n.name}_${n.pid}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueNodes.push(n);
+      }
+    });
+
+    const conditions = uniqueNodes.map(n => `(${config.processId}:"${n.pid}" and ${config.image}:"${n.name}")`).join(' or ');
+    const elastic = `event.code:"3" and (${conditions})`;
+    
+    setQueryForm({ name: 'All Nodes Network', pid: 'ALL' });
+    setQueryOutput({ elastic });
+  };
+
+  const handleBulkFile = () => {
+    const nodeVals = Object.values(nodes);
+    const validNodes = nodeVals.filter(n => n.pid !== '-' && n.name !== '-');
+    if (validNodes.length === 0) return;
+
+    const uniqueNodes = [];
+    const seen = new Set();
+    validNodes.forEach(n => {
+      const key = `${n.name}_${n.pid}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueNodes.push(n);
+      }
+    });
+
+    const conditions = uniqueNodes.map(n => `(${config.processId}:"${n.pid}" and ${config.image}:"${n.name}")`).join(' or ');
+    const elastic = `event.code:"11" and (${conditions})`;
+    
+    setQueryForm({ name: 'All Nodes File', pid: 'ALL' });
+    setQueryOutput({ elastic });
+  };
+
+  const handleBulkDns = () => {
+    const nodeVals = Object.values(nodes);
+    const validNodes = nodeVals.filter(n => n.pid !== '-' && n.name !== '-');
+    if (validNodes.length === 0) return;
+
+    const uniqueNodes = [];
+    const seen = new Set();
+    validNodes.forEach(n => {
+      const key = `${n.name}_${n.pid}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueNodes.push(n);
+      }
+    });
+
+    const conditions = uniqueNodes.map(n => `(${config.processId}:"${n.pid}" and ${config.image}:"${n.name}")`).join(' or ');
+    const elastic = `event.code:"22" and (${conditions})`;
+    
+    setQueryForm({ name: 'All Nodes DNS', pid: 'ALL' });
+    setQueryOutput({ elastic });
+  };
+
+  const handleBulkRegistry = () => {
+    const nodeVals = Object.values(nodes);
+    const validNodes = nodeVals.filter(n => n.pid !== '-' && n.name !== '-');
+    if (validNodes.length === 0) return;
+
+    const uniqueNodes = [];
+    const seen = new Set();
+    validNodes.forEach(n => {
+      const key = `${n.name}_${n.pid}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueNodes.push(n);
+      }
+    });
+
+    const conditions = uniqueNodes.map(n => `(${config.processId}:"${n.pid}" and ${config.image}:"${n.name}")`).join(' or ');
+    const elastic = `event.code:"13" and (${conditions})`;
+    
+    setQueryForm({ name: 'All Nodes Registry', pid: 'ALL' });
+    setQueryOutput({ elastic });
+  };
+
+  const handleGenerateAIPrompt = () => {
+    const nodeVals = Object.values(nodes);
+    if (nodeVals.length === 0) return;
+
+    const roots = nodeVals.filter(n => n.parents.length === 0);
+    if (roots.length === 0 && nodeVals.length > 0) {
+      roots.push(nodeVals[0]);
     }
+
+    roots.sort((a, b) => {
+      const timeA = new Date(a.time?.replace('@', '') || 0).getTime() || 0;
+      const timeB = new Date(b.time?.replace('@', '') || 0).getTime() || 0;
+      return timeA - timeB;
+    });
+
+    let treeText = '';
+
+    const buildTextNode = (nodeId, prefix, isLast, visited, isRoot = false) => {
+      if (visited.has(nodeId)) return;
+      visited.add(nodeId);
+      
+      const node = nodes[nodeId];
+      if (!node) return;
+      
+      let linePrefix = prefix;
+      if (!isRoot) linePrefix += isLast ? '└── ' : '├── ';
+      
+      treeText += `${linePrefix}${node.name} (PID: ${node.pid}) ${node.time ? `[Time: ${node.time}]` : ''} ${node.extra ? `[Extra: ${node.extra}]` : ''}\n`;
+      
+      let childPrefix = prefix;
+      if (!isRoot) childPrefix += isLast ? '    ' : '│   ';
+
+      if (node.fileEvents && node.fileEvents.length > 0) {
+        node.fileEvents.forEach((file, idx) => {
+          const isFileLast = (idx === node.fileEvents.length - 1) && (!node.dnsEvents || node.dnsEvents.length === 0) && (!node.regEvents || node.regEvents.length === 0) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
+          const filePrefix = childPrefix + (isFileLast ? '└── ' : '├── ');
+          treeText += `${filePrefix}[FILE] ${file.filePath} ${file.timestamp ? `[Time: ${file.timestamp}]` : ''} ${file.extra ? `[Extra: ${file.extra}]` : ''}\n`;
+        });
+      }
+
+      if (node.dnsEvents && node.dnsEvents.length > 0) {
+        node.dnsEvents.forEach((dns, idx) => {
+          const isDnsLast = (idx === node.dnsEvents.length - 1) && (!node.regEvents || node.regEvents.length === 0) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
+          const dnsPrefix = childPrefix + (isDnsLast ? '└── ' : '├── ');
+          treeText += `${dnsPrefix}[DNS] ${dns.dnsQuestion} -> ${dns.dnsIp} ${dns.extra ? `[Extra: ${dns.extra}]` : ''}\n`;
+        });
+      }
+
+      if (node.regEvents && node.regEvents.length > 0) {
+        node.regEvents.forEach((reg, idx) => {
+          const isRegLast = (idx === node.regEvents.length - 1) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
+          const regPrefix = childPrefix + (isRegLast ? '└── ' : '├── ');
+          treeText += `${regPrefix}[REGISTRY] ${reg.regPath} = ${reg.regData} ${reg.timestamp ? `[Time: ${reg.timestamp}]` : ''} ${reg.extra ? `[Extra: ${reg.extra}]` : ''}\n`;
+        });
+      }
+
+      if (node.networkEvents && node.networkEvents.length > 0) {
+        node.networkEvents.forEach((net, idx) => {
+          const isNetLast = (idx === node.networkEvents.length - 1) && node.children.length === 0;
+          const netPrefix = childPrefix + (isNetLast ? '└── ' : '├── ');
+          treeText += `${netPrefix}[NETWORK] ${net.srcIp} -> ${net.destIp} ${net.extra ? `[Extra: ${net.extra}]` : ''}\n`;
+        });
+      }
+
+      const childrenIds = [...node.children].filter(id => nodes[id]);
+      childrenIds.sort((idA, idB) => {
+        const timeA = new Date(nodes[idA]?.time?.replace('@', '') || 0).getTime() || 0;
+        const timeB = new Date(nodes[idB]?.time?.replace('@', '') || 0).getTime() || 0;
+        return timeA - timeB;
+      });
+
+      childrenIds.forEach((childId, index) => {
+        const isChildLast = index === childrenIds.length - 1;
+        buildTextNode(childId, childPrefix, isChildLast, new Set(visited), false);
+      });
+    };
+
+    roots.forEach((root, index) => {
+      buildTextNode(root.id, '', index === roots.length - 1, new Set(), true);
+      if (index < roots.length - 1) treeText += '\n';
+    });
+
+    const prompt = `As a cybersecurity expert and threat hunter, please analyze the following process execution tree. 
+This tree may contain process spawn events, network connections [NETWORK], DNS queries [DNS], file creations [FILE], and registry modifications [REGISTRY].
+
+Are there any suspicious behaviors, anomalies, or potential indicators of compromise (IoC) here? 
+If so, please explain what is unusual and outline what the attacker might be trying to achieve.
+
+Process Tree Data:
+${treeText}`;
+
+    setQueryForm({ name: 'AI Analysis', pid: 'PROMPT' });
+    setQueryOutput({ aiPrompt: prompt });
+  };
+
+  const handleDeleteBranch = (nodeId) => {
+    if (!confirm("Bạn có chắc muốn xoá nhánh này (bao gồm cả các tiến trình con)?")) return;
+
+    const currentNodes = JSON.parse(JSON.stringify(nodes));
+
+    const idsToDelete = new Set();
+    const gatherChildren = (id) => {
+      if (!currentNodes[id] || idsToDelete.has(id)) return;
+      idsToDelete.add(id);
+      currentNodes[id].children.forEach(childId => gatherChildren(childId));
+    };
+    gatherChildren(nodeId);
+
+    idsToDelete.forEach(id => {
+      const nodeToDelete = currentNodes[id];
+      if (nodeToDelete) {
+        nodeToDelete.parents.forEach(parentId => {
+          if (currentNodes[parentId] && !idsToDelete.has(parentId)) {
+            currentNodes[parentId].children = currentNodes[parentId].children.filter(childId => childId !== id);
+          }
+        });
+      }
+      delete currentNodes[id];
+    });
+
+    setNodes(currentNodes);
   };
 
   const handleGenerateQueryForm = (e) => {
@@ -217,6 +521,14 @@ export default function ElasticView() {
           >
             🔍 Query
           </button>
+          <button 
+            className="action-btn" 
+            onClick={() => handleDeleteBranch(nodeId)}
+            title="Xoá nhánh này"
+            style={{ backgroundColor: '#da3633', marginLeft: '5px', padding: '4px 8px' }}
+          >
+            ❌
+          </button>
         </div>
       );
       
@@ -224,11 +536,72 @@ export default function ElasticView() {
       if (!isRoot) {
         childPrefix += isLast ? '    ' : '│   ';
       }
+
+      // Render file events
+      if (node.fileEvents && node.fileEvents.length > 0) {
+        node.fileEvents.forEach((file, idx) => {
+          const isFileLast = (idx === node.fileEvents.length - 1) && (!node.dnsEvents || node.dnsEvents.length === 0) && (!node.regEvents || node.regEvents.length === 0) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
+          const filePrefix = childPrefix + (isFileLast ? '└── ' : '├── ');
+          elements.push(
+            <div key={`${nodeId}-file-${idx}`} className="tree-line file-line" style={{color: '#d2a8ff'}}>
+              <span className="tree-prefix">{filePrefix}</span>
+              <span className="tree-node-text">📄 {file.filePath} {file.timestamp ? `[${file.timestamp}]` : ''}</span>
+              {file.extra && <span className="tree-extra">[{file.extra}]</span>}
+            </div>
+          );
+        });
+      }
+
+      // Render DNS events
+      if (node.dnsEvents && node.dnsEvents.length > 0) {
+        node.dnsEvents.forEach((dns, idx) => {
+          const isDnsLast = (idx === node.dnsEvents.length - 1) && (!node.regEvents || node.regEvents.length === 0) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
+          const dnsPrefix = childPrefix + (isDnsLast ? '└── ' : '├── ');
+          elements.push(
+            <div key={`${nodeId}-dns-${idx}`} className="tree-line dns-line" style={{color: '#ffc770'}}>
+              <span className="tree-prefix">{dnsPrefix}</span>
+              <span className="tree-node-text">📡 {dns.dnsQuestion} {"->"} {dns.dnsIp}</span>
+              {dns.extra && <span className="tree-extra">[{dns.extra}]</span>}
+            </div>
+          );
+        });
+      }
+
+      // Render Registry events
+      if (node.regEvents && node.regEvents.length > 0) {
+        node.regEvents.forEach((reg, idx) => {
+          const isRegLast = (idx === node.regEvents.length - 1) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
+          const regPrefix = childPrefix + (isRegLast ? '└── ' : '├── ');
+          elements.push(
+            <div key={`${nodeId}-reg-${idx}`} className="tree-line reg-line" style={{color: '#79c0ff'}}>
+              <span className="tree-prefix">{regPrefix}</span>
+              <span className="tree-node-text">🗄️ {reg.regPath} = {reg.regData} {reg.timestamp ? `[${reg.timestamp}]` : ''}</span>
+              {reg.extra && <span className="tree-extra">[{reg.extra}]</span>}
+            </div>
+          );
+        });
+      }
+
+      // Render network events
+      if (node.networkEvents && node.networkEvents.length > 0) {
+        node.networkEvents.forEach((net, idx) => {
+          const isNetLast = (idx === node.networkEvents.length - 1) && node.children.length === 0;
+          const netPrefix = childPrefix + (isNetLast ? '└── ' : '├── ');
+          elements.push(
+            <div key={`${nodeId}-net-${idx}`} className="tree-line network-line" style={{color: '#8bd5ca'}}>
+              <span className="tree-prefix">{netPrefix}</span>
+              <span className="tree-node-text">🌐 {net.srcIp} {"->"} {net.destIp}</span>
+              {net.extra && <span className="tree-extra">[{net.extra}]</span>}
+            </div>
+          );
+        });
+      }
       
-      const childrenIds = [...node.children];
+      // Safe guard: filter out any potentially undefined children
+      const childrenIds = [...node.children].filter(id => nodes[id]);
       childrenIds.sort((idA, idB) => {
-        const timeA = new Date(nodes[idA].time?.replace('@', '') || 0).getTime() || 0;
-        const timeB = new Date(nodes[idB].time?.replace('@', '') || 0).getTime() || 0;
+        const timeA = new Date(nodes[idA]?.time?.replace('@', '') || 0).getTime() || 0;
+        const timeB = new Date(nodes[idB]?.time?.replace('@', '') || 0).getTime() || 0;
         return timeA - timeB;
       });
 
@@ -302,13 +675,30 @@ export default function ElasticView() {
             </div>
             <button type="submit">Sinh Query Đơn</button>
           </form>
-          <div style={{marginTop: '10px'}}>
+          <div style={{marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
             <button type="button" onClick={handleBulkExpand} style={{backgroundColor: '#1f6feb', fontSize: '0.9rem'}} title="Tự động gom tất cả Root (gốc) và Leaf (ngọn) để truy vấn mở rộng biên của cây">🔍 Bulk Expand Tree (Gộp Roots & Leaves)</button>
+            <div style={{display: 'flex', gap: '8px'}}>
+              <button type="button" onClick={handleBulkDns} style={{backgroundColor: '#e69f00', fontSize: '0.9rem', color: '#1f1f1f', flex: 1}} title="Tạo Query tìm DNS Query (Event 22) cho tất cả Process hiện có">📡 Query DNS</button>
+              <button type="button" onClick={handleBulkNetwork} style={{backgroundColor: '#9e6a03', fontSize: '0.9rem', flex: 1}} title="Tạo Query tìm Network Connection (Event 3) cho tất cả Process hiện có">🌐 Query Network</button>
+              <button type="button" onClick={handleBulkFile} style={{backgroundColor: '#8957e5', fontSize: '0.9rem', flex: 1}} title="Tạo Query tìm File Creation (Event 11) cho tất cả Process hiện có">📄 Query File</button>
+              <button type="button" onClick={handleBulkRegistry} style={{backgroundColor: '#1f6feb', fontSize: '0.9rem', flex: 1}} title="Tạo Query tìm Registry Change (Event 13) cho tất cả Process hiện có">🗄️ Query Registry</button>
+            </div>
+            <button type="button" onClick={handleGenerateAIPrompt} style={{backgroundColor: '#238636', fontSize: '0.9rem'}} title="Sinh prompt chứa toàn bộ dữ liệu cây để nhờ AI (ChatGPT/Gemini) phân tích">🤖 Generate AI Analysis Prompt</button>
           </div>
           {queryOutput && (
             <div className="output-box">
-              <strong>Elastic (KQL) Query:</strong>
-              <textarea readOnly value={queryOutput.elastic} rows={4} onClick={e => e.target.select()} />
+              {queryOutput.elastic && (
+                <>
+                  <strong>Elastic (KQL) Query:</strong>
+                  <textarea readOnly value={queryOutput.elastic} rows={4} onClick={e => e.target.select()} />
+                </>
+              )}
+              {queryOutput.aiPrompt && (
+                <>
+                  <strong>AI Analysis Prompt (Copy & Paste to ChatGPT/Gemini):</strong>
+                  <textarea readOnly value={queryOutput.aiPrompt} rows={12} onClick={e => e.target.select()} />
+                </>
+              )}
             </div>
           )}
         </section>
@@ -320,9 +710,37 @@ export default function ElasticView() {
              <h2>3. Thêm Nhánh Mới vào Cây</h2>
              <button onClick={handleReset} style={{width: 'auto', backgroundColor: '#da3633', padding: '5px 15px', fontSize: '0.9rem'}}>Xóa toàn bộ cây (Reset)</button>
           </div>
-          <p className="hint-text">Cứ mỗi lần chạy được kết quả mới, bạn Paste đè vào đây. Tool sẽ tự động ghép nhánh mới vào cây cũ và làm rỗng ô nhập liệu.</p>
+          <div style={{display: 'flex', gap: '20px', marginBottom: '10px', marginTop: '10px', flexWrap: 'wrap'}}>
+            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'process' ? '#58a6ff' : '#8b949e'}}>
+              <input type="radio" name="pasteMode" value="process" checked={pasteMode === 'process'} onChange={(e) => setPasteMode(e.target.value)} />
+              {' '}Process (Event 1)
+            </label>
+            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'dns' ? '#58a6ff' : '#8b949e'}}>
+              <input type="radio" name="pasteMode" value="dns" checked={pasteMode === 'dns'} onChange={(e) => setPasteMode(e.target.value)} />
+              {' '}DNS (Event 22)
+            </label>
+            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'network' ? '#58a6ff' : '#8b949e'}}>
+              <input type="radio" name="pasteMode" value="network" checked={pasteMode === 'network'} onChange={(e) => setPasteMode(e.target.value)} />
+              {' '}Network (Event 3)
+            </label>
+            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'file' ? '#58a6ff' : '#8b949e'}}>
+              <input type="radio" name="pasteMode" value="file" checked={pasteMode === 'file'} onChange={(e) => setPasteMode(e.target.value)} />
+              {' '}File (Event 11)
+            </label>
+            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'registry' ? '#58a6ff' : '#8b949e'}}>
+              <input type="radio" name="pasteMode" value="registry" checked={pasteMode === 'registry'} onChange={(e) => setPasteMode(e.target.value)} />
+              {' '}Registry (Event 13)
+            </label>
+          </div>
+          <p className="hint-text">
+            {pasteMode === 'process' && "Dán kết quả Event 1. Tool sẽ ghép nhánh mới."}
+            {pasteMode === 'dns' && "Dán kết quả Event 22. Cột: Tên | PID | DNS Hỏi | DNS Đáp"}
+            {pasteMode === 'network' && "Dán kết quả Event 3. Cột: Tên | PID | SrcIP | DestIP"}
+            {pasteMode === 'file' && "Dán kết quả Event 11. Cột: Thời gian | Tên | PID | Đường dẫn"}
+            {pasteMode === 'registry' && "Dán kết quả Event 13. Cột: Thời gian | Tên | PID | Đường dẫn Reg | Data"}
+          </p>
           <textarea 
-            placeholder="Paste kết quả Query mới vào đây..." 
+            placeholder={`Paste kết quả Query ${pasteMode.toUpperCase()} vào đây...`}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             rows={6}
