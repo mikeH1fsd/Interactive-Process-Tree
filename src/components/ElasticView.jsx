@@ -468,6 +468,19 @@ ${treeText}`;
     setNodes(currentNodes);
   };
 
+  const handleCopyChildQuery = (node) => {
+    const query = `process.parent.name: "${node.name}" AND process.parent.pid: "${node.pid}"`;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(query).then(() => {
+        alert(`Đã copy query tìm Process Con vào Clipboard:\n${query}`);
+      }).catch(() => {
+        prompt("Hãy copy query bên dưới:", query);
+      });
+    } else {
+      prompt("Hãy copy query bên dưới:", query);
+    }
+  };
+
   const handleGenerateQueryForm = (e) => {
     e.preventDefault();
     const result = generateQueries(queryForm.name, queryForm.pid);
@@ -512,23 +525,12 @@ ${treeText}`;
       elements.push(
         <div key={`${nodeId}-${elements.length}`} className="tree-line">
           <span className="tree-prefix">{linePrefix}</span>
-          <span className="tree-node-text">{node.name} {node.time ? `[${node.time}]` : ''} (PID {node.pid})</span>
+          <span className="tree-node-text process">🟢 {node.name} {node.time ? `[${node.time}]` : ''} (PID {node.pid})</span>
           {node.extra && <span className="tree-extra">[{node.extra}]</span>}
-          <button 
-            className="action-btn" 
-            onClick={() => handleNodeClick(node)}
-            title="Sinh Query cho Process này"
-          >
-            🔍 Query
-          </button>
-          <button 
-            className="action-btn" 
-            onClick={() => handleDeleteBranch(nodeId)}
-            title="Xoá nhánh này"
-            style={{ backgroundColor: '#da3633', marginLeft: '5px', padding: '4px 8px' }}
-          >
-            ❌
-          </button>
+          <div className="node-actions">
+            <button className="action-btn query" onClick={() => handleCopyChildQuery(node)} title="Copy KQL tìm Process Con của tiến trình này">🔍</button>
+            <button className="action-btn delete" onClick={() => handleDeleteBranch(nodeId)} title="Xoá nhánh này">🗑️</button>
+          </div>
         </div>
       );
       
@@ -543,9 +545,9 @@ ${treeText}`;
           const isFileLast = (idx === node.fileEvents.length - 1) && (!node.dnsEvents || node.dnsEvents.length === 0) && (!node.regEvents || node.regEvents.length === 0) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
           const filePrefix = childPrefix + (isFileLast ? '└── ' : '├── ');
           elements.push(
-            <div key={`${nodeId}-file-${idx}`} className="tree-line file-line" style={{color: '#d2a8ff'}}>
+            <div key={`${nodeId}-file-${idx}`} className="tree-line">
               <span className="tree-prefix">{filePrefix}</span>
-              <span className="tree-node-text">📄 {file.filePath} {file.timestamp ? `[${file.timestamp}]` : ''}</span>
+              <span className="tree-node-text file">📄 {file.filePath} {file.timestamp ? `[${file.timestamp}]` : ''}</span>
               {file.extra && <span className="tree-extra">[{file.extra}]</span>}
             </div>
           );
@@ -558,9 +560,9 @@ ${treeText}`;
           const isDnsLast = (idx === node.dnsEvents.length - 1) && (!node.regEvents || node.regEvents.length === 0) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
           const dnsPrefix = childPrefix + (isDnsLast ? '└── ' : '├── ');
           elements.push(
-            <div key={`${nodeId}-dns-${idx}`} className="tree-line dns-line" style={{color: '#ffc770'}}>
+            <div key={`${nodeId}-dns-${idx}`} className="tree-line">
               <span className="tree-prefix">{dnsPrefix}</span>
-              <span className="tree-node-text">📡 {dns.dnsQuestion} {"->"} {dns.dnsIp}</span>
+              <span className="tree-node-text dns">📡 {dns.dnsQuestion} {"->"} {dns.dnsIp}</span>
               {dns.extra && <span className="tree-extra">[{dns.extra}]</span>}
             </div>
           );
@@ -573,9 +575,9 @@ ${treeText}`;
           const isRegLast = (idx === node.regEvents.length - 1) && (!node.networkEvents || node.networkEvents.length === 0) && node.children.length === 0;
           const regPrefix = childPrefix + (isRegLast ? '└── ' : '├── ');
           elements.push(
-            <div key={`${nodeId}-reg-${idx}`} className="tree-line reg-line" style={{color: '#79c0ff'}}>
+            <div key={`${nodeId}-reg-${idx}`} className="tree-line">
               <span className="tree-prefix">{regPrefix}</span>
-              <span className="tree-node-text">🗄️ {reg.regPath} = {reg.regData} {reg.timestamp ? `[${reg.timestamp}]` : ''}</span>
+              <span className="tree-node-text registry">🗄️ {reg.regPath} = {reg.regData} {reg.timestamp ? `[${reg.timestamp}]` : ''}</span>
               {reg.extra && <span className="tree-extra">[{reg.extra}]</span>}
             </div>
           );
@@ -588,9 +590,9 @@ ${treeText}`;
           const isNetLast = (idx === node.networkEvents.length - 1) && node.children.length === 0;
           const netPrefix = childPrefix + (isNetLast ? '└── ' : '├── ');
           elements.push(
-            <div key={`${nodeId}-net-${idx}`} className="tree-line network-line" style={{color: '#8bd5ca'}}>
+            <div key={`${nodeId}-net-${idx}`} className="tree-line">
               <span className="tree-prefix">{netPrefix}</span>
-              <span className="tree-node-text">🌐 {net.srcIp} {"->"} {net.destIp}</span>
+              <span className="tree-node-text network">🌐 {net.srcIp} {"->"} {net.destIp}</span>
               {net.extra && <span className="tree-extra">[{net.extra}]</span>}
             </div>
           );
@@ -675,15 +677,13 @@ ${treeText}`;
             </div>
             <button type="submit">Sinh Query Đơn</button>
           </form>
-          <div style={{marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
-            <button type="button" onClick={handleBulkExpand} style={{backgroundColor: '#1f6feb', fontSize: '0.9rem'}} title="Tự động gom tất cả Root (gốc) và Leaf (ngọn) để truy vấn mở rộng biên của cây">🔍 Bulk Expand Tree (Gộp Roots & Leaves)</button>
-            <div style={{display: 'flex', gap: '8px'}}>
-              <button type="button" onClick={handleBulkDns} style={{backgroundColor: '#e69f00', fontSize: '0.9rem', color: '#1f1f1f', flex: 1}} title="Tạo Query tìm DNS Query (Event 22) cho tất cả Process hiện có">📡 Query DNS</button>
-              <button type="button" onClick={handleBulkNetwork} style={{backgroundColor: '#9e6a03', fontSize: '0.9rem', flex: 1}} title="Tạo Query tìm Network Connection (Event 3) cho tất cả Process hiện có">🌐 Query Network</button>
-              <button type="button" onClick={handleBulkFile} style={{backgroundColor: '#8957e5', fontSize: '0.9rem', flex: 1}} title="Tạo Query tìm File Creation (Event 11) cho tất cả Process hiện có">📄 Query File</button>
-              <button type="button" onClick={handleBulkRegistry} style={{backgroundColor: '#1f6feb', fontSize: '0.9rem', flex: 1}} title="Tạo Query tìm Registry Change (Event 13) cho tất cả Process hiện có">🗄️ Query Registry</button>
-            </div>
-            <button type="button" onClick={handleGenerateAIPrompt} style={{backgroundColor: '#238636', fontSize: '0.9rem'}} title="Sinh prompt chứa toàn bộ dữ liệu cây để nhờ AI (ChatGPT/Gemini) phân tích">🤖 Generate AI Analysis Prompt</button>
+          <div className="action-buttons">
+            <button type="button" onClick={handleBulkExpand} className="btn-expand" title="Tự động gom tất cả Root (gốc) và Leaf (ngọn) để truy vấn mở rộng biên của cây">🔍 Bulk Expand Tree</button>
+            <button type="button" onClick={handleGenerateAIPrompt} title="Sinh prompt chứa toàn bộ dữ liệu cây để nhờ AI (ChatGPT/Gemini) phân tích">🤖 Generate AI Prompt</button>
+            <button type="button" onClick={handleBulkDns} className="btn-dns" title="Tạo Query tìm DNS Query (Event 22) cho tất cả Process hiện có">📡 Query DNS</button>
+            <button type="button" onClick={handleBulkNetwork} className="btn-network" title="Tạo Query tìm Network Connection (Event 3) cho tất cả Process hiện có">🌐 Query Network</button>
+            <button type="button" onClick={handleBulkFile} className="btn-file" title="Tạo Query tìm File Creation (Event 11) cho tất cả Process hiện có">📄 Query File</button>
+            <button type="button" onClick={handleBulkRegistry} className="btn-registry" title="Tạo Query tìm Registry Change (Event 13) cho tất cả Process hiện có">🗄️ Query Registry</button>
           </div>
           {queryOutput && (
             <div className="output-box">
@@ -710,27 +710,30 @@ ${treeText}`;
              <h2>3. Thêm Nhánh Mới vào Cây</h2>
              <button onClick={handleReset} style={{width: 'auto', backgroundColor: '#da3633', padding: '5px 15px', fontSize: '0.9rem'}}>Xóa toàn bộ cây (Reset)</button>
           </div>
-          <div style={{display: 'flex', gap: '20px', marginBottom: '10px', marginTop: '10px', flexWrap: 'wrap'}}>
-            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'process' ? '#58a6ff' : '#8b949e'}}>
-              <input type="radio" name="pasteMode" value="process" checked={pasteMode === 'process'} onChange={(e) => setPasteMode(e.target.value)} />
-              {' '}Process (Event 1)
-            </label>
-            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'dns' ? '#58a6ff' : '#8b949e'}}>
-              <input type="radio" name="pasteMode" value="dns" checked={pasteMode === 'dns'} onChange={(e) => setPasteMode(e.target.value)} />
-              {' '}DNS (Event 22)
-            </label>
-            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'network' ? '#58a6ff' : '#8b949e'}}>
-              <input type="radio" name="pasteMode" value="network" checked={pasteMode === 'network'} onChange={(e) => setPasteMode(e.target.value)} />
-              {' '}Network (Event 3)
-            </label>
-            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'file' ? '#58a6ff' : '#8b949e'}}>
-              <input type="radio" name="pasteMode" value="file" checked={pasteMode === 'file'} onChange={(e) => setPasteMode(e.target.value)} />
-              {' '}File (Event 11)
-            </label>
-            <label style={{cursor: 'pointer', fontWeight: 'bold', color: pasteMode === 'registry' ? '#58a6ff' : '#8b949e'}}>
-              <input type="radio" name="pasteMode" value="registry" checked={pasteMode === 'registry'} onChange={(e) => setPasteMode(e.target.value)} />
-              {' '}Registry (Event 13)
-            </label>
+          <div className="input-group">
+            <label>Mode:</label>
+            <div className="paste-modes">
+              <label className={`paste-mode-label ${pasteMode === 'process' ? 'active' : ''}`}>
+                <input type="radio" name="pasteMode" value="process" checked={pasteMode === 'process'} onChange={(e) => setPasteMode(e.target.value)} />
+                Process (Event 1)
+              </label>
+              <label className={`paste-mode-label ${pasteMode === 'dns' ? 'active' : ''}`}>
+                <input type="radio" name="pasteMode" value="dns" checked={pasteMode === 'dns'} onChange={(e) => setPasteMode(e.target.value)} />
+                DNS (Event 22)
+              </label>
+              <label className={`paste-mode-label ${pasteMode === 'network' ? 'active' : ''}`}>
+                <input type="radio" name="pasteMode" value="network" checked={pasteMode === 'network'} onChange={(e) => setPasteMode(e.target.value)} />
+                Network (Event 3)
+              </label>
+              <label className={`paste-mode-label ${pasteMode === 'file' ? 'active' : ''}`}>
+                <input type="radio" name="pasteMode" value="file" checked={pasteMode === 'file'} onChange={(e) => setPasteMode(e.target.value)} />
+                File (Event 11)
+              </label>
+              <label className={`paste-mode-label ${pasteMode === 'registry' ? 'active' : ''}`}>
+                <input type="radio" name="pasteMode" value="registry" checked={pasteMode === 'registry'} onChange={(e) => setPasteMode(e.target.value)} />
+                Registry (Event 13)
+              </label>
+            </div>
           </div>
           <p className="hint-text">
             {pasteMode === 'process' && "Dán kết quả Event 1. Tool sẽ ghép nhánh mới."}
