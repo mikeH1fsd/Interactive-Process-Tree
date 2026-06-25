@@ -52,6 +52,20 @@ function ElasticApiView() {
   const [evt4104ProcessPidField, setEvt4104ProcessPidField] = useState('winlog.process.pid');
   const [evt4104ExtraField, setEvt4104ExtraField] = useState('powershell.file.script_block_text');
 
+  // Logon Context Config (4688 -> 4624)
+  const [logonEventCodeField, setLogonEventCodeField] = useState('winlog.event_id');
+  const [logonProcessNameField, setLogonProcessNameField] = useState('process.name');
+  const [logonProcessPidField, setLogonProcessPidField] = useState('process.pid');
+  const [logonIdField, setLogonIdField] = useState('winlog.logon.id');
+  const [logonHostField, setLogonHostField] = useState('host.name');
+  const [logonSourceIpField, setLogonSourceIpField] = useState('source.ip');
+  const [logonUserField, setLogonUserField] = useState('user.name');
+  const [logonTypeField, setLogonTypeField] = useState('winlog.event_data.LogonType');
+  
+  // Logon Context State
+  const [logonContext, setLogonContext] = useState(null);
+  const [isFetchingLogon, setIsFetchingLogon] = useState(false);
+
   // Tree State
   const [nodes, setNodes] = useState({});
   const [isBuilding, setIsBuilding] = useState(false);
@@ -1788,6 +1802,85 @@ function ElasticApiView() {
     });
   };
 
+  const handleFetchLogonContext = async () => {
+    if (!searchProcessName || !searchProcessPid) {
+      alert("Vui lòng nhập Process Name và Process PID gốc trước khi tra cứu Logon Context.");
+      return;
+    }
+    
+    setIsFetchingLogon(true);
+    setLogonContext(null);
+
+    try {
+      const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+
+      // 1. Fetch Event 4688 to get Logon ID
+      let q1 = `(${logonEventCodeField}: "4688") AND (${logonProcessNameField}: "${searchProcessName}") AND (${logonProcessPidField}: "${searchProcessPid}")`;
+      const res1 = await fetch(`/elastic_api/${indexPattern}/_search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
+        body: JSON.stringify({
+          query: { query_string: { query: q1 } },
+          size: 1,
+          sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+        })
+      });
+      if (!res1.ok) throw new Error(`API Error 4688: ${res1.status}`);
+      const data1 = await res1.json();
+      
+      if (!data1.hits || !data1.hits.hits || data1.hits.hits.length === 0) {
+        alert("Không tìm thấy Event 4688 (Process Creation) nào cho Process Name và PID này.");
+        setIsFetchingLogon(false);
+        return;
+      }
+      
+      const source1 = data1.hits.hits[0]._source;
+      const logonId = getNested(source1, logonIdField);
+      
+      if (!logonId) {
+        alert(`Không tìm thấy giá trị '${logonIdField}' trong Event 4688.`);
+        setIsFetchingLogon(false);
+        return;
+      }
+
+      // 2. Fetch Event 4624 using Logon ID
+      let q2 = `(${logonEventCodeField}: "4624") AND (${logonIdField}: "${logonId}")`;
+      const res2 = await fetch(`/elastic_api/${indexPattern}/_search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
+        body: JSON.stringify({
+          query: { query_string: { query: q2 } },
+          size: 1,
+          sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+        })
+      });
+      if (!res2.ok) throw new Error(`API Error 4624: ${res2.status}`);
+      const data2 = await res2.json();
+
+      if (!data2.hits || !data2.hits.hits || data2.hits.hits.length === 0) {
+        alert(`Đã tìm thấy Logon ID: ${logonId} nhưng không tìm thấy Event 4624 tương ứng.`);
+        setIsFetchingLogon(false);
+        return;
+      }
+
+      const source2 = data2.hits.hits[0]._source;
+      const host = getNested(source2, logonHostField) || 'N/A';
+      const ip = getNested(source2, logonSourceIpField) || 'N/A';
+      const user = getNested(source2, logonUserField) || 'N/A';
+      const logonType = getNested(source2, logonTypeField) || 'N/A';
+
+      setLogonContext({
+        logonId, host, ip, user, logonType
+      });
+
+    } catch (error) {
+      alert("Lỗi khi tra cứu Logon Context: " + error.message);
+    } finally {
+      setIsFetchingLogon(false);
+    }
+  };
+
   const handlePruneSpam = () => {
     const currentNodes = { ...nodes };
     let deletedCount = 0;
@@ -2240,6 +2333,40 @@ function ElasticApiView() {
             <label>Extra Field (Script Block):</label>
             <AutocompleteInput value={evt4104ExtraField} onChange={setEvt4104ExtraField} placeholder="powershell.file.script_block_text" suggestions={indexFields} multi={true} />
           </div>
+
+          <h3 style={{ marginTop: '20px', marginBottom: '10px', fontSize: '1.1rem', color: '#f59e0b' }}>Cấu Hình Logon Context (4688 ➔ 4624)</h3>
+          <div className="input-group">
+            <label>Event Code Field:</label>
+            <AutocompleteInput value={logonEventCodeField} onChange={setLogonEventCodeField} placeholder="winlog.event_id" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Process Name Field:</label>
+            <AutocompleteInput value={logonProcessNameField} onChange={setLogonProcessNameField} placeholder="process.name" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Process PID Field:</label>
+            <AutocompleteInput value={logonProcessPidField} onChange={setLogonProcessPidField} placeholder="process.pid" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Logon ID Field:</label>
+            <AutocompleteInput value={logonIdField} onChange={setLogonIdField} placeholder="winlog.logon.id" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Hostname Field:</label>
+            <AutocompleteInput value={logonHostField} onChange={setLogonHostField} placeholder="host.name" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Source IP Field:</label>
+            <AutocompleteInput value={logonSourceIpField} onChange={setLogonSourceIpField} placeholder="source.ip" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>User Name Field:</label>
+            <AutocompleteInput value={logonUserField} onChange={setLogonUserField} placeholder="user.name" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Logon Type Field:</label>
+            <AutocompleteInput value={logonTypeField} onChange={setLogonTypeField} placeholder="winlog.event_data.LogonType" suggestions={indexFields} />
+          </div>
         </div>
       </div>
 
@@ -2299,6 +2426,14 @@ function ElasticApiView() {
               style={{ flex: 1, backgroundColor: isBuilding ? 'var(--text-secondary)' : 'var(--primary)' }}
             >
               {isBuilding ? '⏳ Đang xử lý...' : (Object.keys(nodes).length === 0 ? '🚀 Build Cây Mới' : '🔍 Auto Bulk Expand')}
+            </button>
+            <button 
+              onClick={handleFetchLogonContext} 
+              disabled={isFetchingLogon}
+              style={{ width: 'auto', backgroundColor: isFetchingLogon ? 'var(--text-secondary)' : '#f59e0b', color: '#fff' }}
+              title="Tra cứu thông tin Đăng nhập (Logon 4624) dựa trên tiến trình gốc (4688)"
+            >
+              👤 {isFetchingLogon ? 'Đang tra cứu...' : 'Tra cứu Logon'}
             </button>
             {Object.keys(nodes).length > 0 && (
               <>
@@ -2368,6 +2503,20 @@ function ElasticApiView() {
           </div>
 
           <div id="elastic-tree-container" className={`tree-container ${isFullScreen ? 'fullscreen' : ''}`}>
+            {logonContext && (
+              <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', borderRadius: '6px', padding: '15px', marginBottom: '15px' }}>
+                <h3 style={{ color: '#f59e0b', marginTop: 0, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>👤</span> Logon Context (Event 4624) của tiến trình gốc
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                  <div><strong>Logon ID:</strong> <span style={{ color: '#fcd34d' }}>{logonContext.logonId}</span></div>
+                  <div><strong>User Name:</strong> <span style={{ color: '#fcd34d' }}>{logonContext.user}</span></div>
+                  <div><strong>Host Name:</strong> <span style={{ color: '#fcd34d' }}>{logonContext.host}</span></div>
+                  <div><strong>Source IP:</strong> <span style={{ color: '#fcd34d' }}>{logonContext.ip}</span></div>
+                  <div><strong>Logon Type:</strong> <span style={{ color: '#fcd34d' }}>{logonContext.logonType}</span></div>
+                </div>
+              </div>
+            )}
             <div className="tree-header" style={{ position: 'sticky', top: 0, right: 0, zIndex: 10, display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', backgroundColor: 'var(--panel-bg)', padding: '5px' }}>
               <button 
                 onClick={handleToggleFullScreen} 
