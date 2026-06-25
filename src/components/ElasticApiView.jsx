@@ -46,6 +46,12 @@ function ElasticApiView() {
   const [evt13ProcessPidField, setEvt13ProcessPidField] = useState('process.pid');
   const [evt13ExtraField, setEvt13ExtraField] = useState('registry.path');
 
+  // Event 4104 Config (PowerShell)
+  const [evt4104CodeField, setEvt4104CodeField] = useState('winlog.event_id');
+  const [evt4104CodeValue, setEvt4104CodeValue] = useState('4104');
+  const [evt4104ProcessPidField, setEvt4104ProcessPidField] = useState('winlog.process.pid');
+  const [evt4104ExtraField, setEvt4104ExtraField] = useState('powershell.file.script_block_text');
+
   // Tree State
   const [nodes, setNodes] = useState({});
   const [isBuilding, setIsBuilding] = useState(false);
@@ -1444,9 +1450,263 @@ function ElasticApiView() {
     } catch (error) {
       alert("Lỗi khi kéo Registry tổng: " + error.message);
     } finally {
+    } finally {
       setIsBuilding(false);
     }
   };
+
+  const handleFetchPowerShell = async (node) => {
+    try {
+      const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+
+      let excludeList = [];
+      let hasMore = true;
+      const allEventsMap = {};
+      
+      const fetchWithExclude = async (excludes) => {
+        let baseStr = `(${evt4104CodeField}: "${evt4104CodeValue}") AND (${evt4104ProcessPidField}: "${node.pid}")`;
+        if (excludes.length > 0) {
+          baseStr += ` AND (${excludes.join(" AND ")})`;
+        }
+        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
+          body: JSON.stringify({
+            query: { query_string: { query: baseStr } },
+            size: 200,
+            sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+          })
+        });
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        return await response.json();
+      };
+
+      while (hasMore) {
+        const data = await fetchWithExclude(excludeList);
+        hasMore = false;
+        
+        if (data.hits && data.hits.hits) {
+          const hits = data.hits.hits;
+          let currentSpamExcludes = [];
+
+          hits.forEach(hit => {
+            const source = hit._source;
+            let extraVals = [];
+            let rawFields = {};
+            if (evt4104ExtraField) {
+              const fields = evt4104ExtraField.split(',').map(f => f.trim()).filter(f => f);
+              fields.forEach(f => {
+                const rawExtra = getNested(source, f);
+                if (rawExtra) {
+                  rawFields[f] = typeof rawExtra === 'object' ? JSON.stringify(rawExtra) : rawExtra.toString();
+                  extraVals.push(`${f}: ${rawFields[f]}`);
+                }
+              });
+            }
+            const time = getNested(source, '@timestamp') || '';
+            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+
+            if (!allEventsMap[extraStr]) {
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+            } else {
+              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].lastTime = time;
+            }
+          });
+
+          if (hits.length === 200) {
+            const spamGroups = Object.values(allEventsMap).filter(g => g.count >= 50);
+            spamGroups.forEach(g => {
+              const conditions = Object.entries(g.rawFields).map(([k, v]) => {
+                const safeVal = v.replace(/"/g, '\\"');
+                return `${k}: "${safeVal}"`;
+              });
+              if (conditions.length > 0) {
+                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                if (!excludeList.includes(excludeStr)) {
+                  excludeList.push(excludeStr);
+                  currentSpamExcludes.push(excludeStr);
+                }
+              }
+            });
+
+            if (currentSpamExcludes.length > 0) {
+              hasMore = true;
+            }
+          }
+        }
+      }
+
+      if (Object.keys(allEventsMap).length > 0) {
+        const currentNodes = { ...nodes };
+        currentNodes[node.id] = { ...currentNodes[node.id] };
+        
+        const existingEventsMap = {};
+        if (currentNodes[node.id].psEvents) {
+          currentNodes[node.id].psEvents.forEach(e => { existingEventsMap[e.extraStr] = e; });
+        }
+        
+        Object.values(allEventsMap).forEach(e => {
+          if (existingEventsMap[e.extraStr]) {
+            existingEventsMap[e.extraStr].count += e.count;
+            existingEventsMap[e.extraStr].lastTime = e.lastTime;
+          } else {
+            existingEventsMap[e.extraStr] = e;
+          }
+        });
+
+        currentNodes[node.id].psEvents = Object.values(existingEventsMap);
+        setNodes(currentNodes);
+      } else {
+        alert("Không tìm thấy sự kiện PowerShell (Event 4104) nào cho tiến trình này.");
+      }
+    } catch (error) {
+      alert("Lỗi khi kéo PowerShell Event 4104: " + error.message);
+    }
+  };
+
+  const handleBulkFetchPowerShell = async () => {
+    setIsBuilding(true);
+    const nodeVals = Object.values(nodes);
+    if (nodeVals.length === 0) {
+      setIsBuilding(false);
+      return;
+    }
+
+    const nodeQueries = nodeVals.map(n => `(${evt4104ProcessPidField}: "${n.pid}")`);
+    const chunkSize = 100;
+    let currentNodes = { ...nodes };
+    const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    let foundAny = false;
+
+    try {
+      for (let i = 0; i < nodeQueries.length; i += chunkSize) {
+        const chunk = nodeQueries.slice(i, i + chunkSize);
+        let excludeList = [];
+        let hasMore = true;
+        const bulkEventsMap = {}; 
+        
+        while (hasMore) {
+          hasMore = false;
+          let queryStr = `(${evt4104CodeField}: "${evt4104CodeValue}") AND (${chunk.join(" OR ")})`;
+          if (excludeList.length > 0) {
+            queryStr += ` AND (${excludeList.join(" AND ")})`;
+          }
+
+          const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
+            body: JSON.stringify({
+              query: { query_string: { query: queryStr } },
+              size: 5000,
+              sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+            })
+          });
+
+          if (!response.ok) throw new Error(`API Error: ${response.status}`);
+          const data = await response.json();
+          
+          if (data.hits && data.hits.hits) {
+            const hits = data.hits.hits;
+            let currentSpamExcludes = [];
+
+            hits.forEach(hit => {
+              const source = hit._source;
+              const pPid = getNested(source, evt4104ProcessPidField) || 'Unknown';
+              
+              const matchingNodeIds = Object.keys(currentNodes).filter(k => currentNodes[k].pid === pPid);
+
+              matchingNodeIds.forEach(processId => {
+                let extraVals = [];
+                let rawFields = {};
+                if (evt4104ExtraField) {
+                  const fields = evt4104ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach(f => {
+                    const rawExtra = getNested(source, f);
+                    if (rawExtra) {
+                      rawFields[f] = typeof rawExtra === 'object' ? JSON.stringify(rawExtra) : rawExtra.toString();
+                      extraVals.push(`${f}: ${rawFields[f]}`);
+                    }
+                  });
+                }
+                const time = getNested(source, '@timestamp') || '';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+
+                if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
+                if (!bulkEventsMap[processId][extraStr]) {
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                } else {
+                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].lastTime = time;
+                }
+              });
+            });
+
+            if (hits.length === 5000) {
+              Object.values(bulkEventsMap).forEach(procMap => {
+                const spamGroups = Object.values(procMap).filter(g => g.count >= 200);
+                spamGroups.forEach(g => {
+                  const conditions = Object.entries(g.rawFields).map(([k, v]) => {
+                    const safeVal = v.replace(/"/g, '\\"');
+                    return `${k}: "${safeVal}"`;
+                  });
+                  if (conditions.length > 0) {
+                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    if (!excludeList.includes(excludeStr)) {
+                      excludeList.push(excludeStr);
+                      currentSpamExcludes.push(excludeStr);
+                    }
+                  }
+                });
+              });
+
+              if (currentSpamExcludes.length > 0) {
+                hasMore = true;
+              }
+            }
+          }
+        }
+
+        Object.keys(bulkEventsMap).forEach(pId => {
+          if (Object.keys(bulkEventsMap[pId]).length > 0) {
+            const existingMap = {};
+            if (currentNodes[pId].psEvents) {
+              currentNodes[pId].psEvents.forEach(e => { existingMap[e.extraStr] = e; });
+            }
+            
+            Object.values(bulkEventsMap[pId]).forEach(e => {
+              if (existingMap[e.extraStr]) {
+                existingMap[e.extraStr].count += e.count;
+                existingMap[e.extraStr].lastTime = e.lastTime;
+              } else {
+                existingMap[e.extraStr] = e;
+              }
+            });
+            
+            const newEvents = Object.values(existingMap);
+            if (newEvents.length > 0) {
+              currentNodes[pId].psEvents = newEvents;
+              foundAny = true;
+            }
+          }
+        });
+      }
+
+      if (foundAny) {
+        setNodes(currentNodes);
+        alert("✅ Đã hoàn tất kéo sự kiện PowerShell (Event 4104) cho toàn bộ Cây!");
+      } else {
+        alert("Không tìm thấy sự kiện PowerShell nào mới cho các tiến trình hiện tại.");
+      }
+    } catch (error) {
+      alert("Lỗi khi kéo PowerShell tổng: " + error.message);
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
 
   const handleGeneratePrompt = () => {
     const nodeVals = Object.values(nodes);
@@ -1499,6 +1759,12 @@ function ElasticApiView() {
         });
       }
 
+      if (node.psEvents && node.psEvents.length > 0) {
+        node.psEvents.forEach(evt => {
+           treeText += `${childPrefix}├── [PowerShell Script] ${evt.extraStr} (x${evt.count})\n`;
+        });
+      }
+
       const sortedChildren = [...node.children].sort((aId, bId) => {
         const timeA = new Date(nodes[aId]?.time || 0).getTime() || 0;
         const timeB = new Date(nodes[bId]?.time || 0).getTime() || 0;
@@ -1514,7 +1780,7 @@ function ElasticApiView() {
       buildTextNode(root.id, '', idx === roots.length - 1);
     });
 
-    const promptText = `Dưới đây là một cây tiến trình (Process Tree) trích xuất từ hệ thống Windows bằng Sysmon/Elasticsearch.\nCác nhánh bao gồm sự kiện Network, File, DNS và Registry.\n\n\`\`\`\n${treeText}\`\`\`\n\nHãy đóng vai một chuyên gia Cyber Security / Threat Hunter phân tích chuỗi sự kiện này:\n1. Bạn có thấy dấu hiệu nào nguy hiểm hoặc bất thường không? (Ví dụ: Malware, C2 Communication, Lateral Movement, Privilege Escalation...)\n2. Chỉ ra chính xác các chi tiết đáng ngờ trên cây.\n3. Đề xuất hướng tiếp cận tiếp theo để điều tra hoặc xử lý.`;
+    const promptText = `Dưới đây là một cây tiến trình (Process Tree) trích xuất từ hệ thống Windows bằng Sysmon/Elasticsearch.\nCác nhánh bao gồm sự kiện Network, File, DNS, Registry và mã nguồn PowerShell script.\n\n\`\`\`\n${treeText}\`\`\`\n\nHãy đóng vai một chuyên gia Cyber Security / Threat Hunter phân tích chuỗi sự kiện này:\n1. Bạn có thấy dấu hiệu nào nguy hiểm hoặc bất thường không? (Ví dụ: Malware, C2 Communication, Lateral Movement, Privilege Escalation, Obfuscated PowerShell...)\n2. Chỉ ra chính xác các chi tiết đáng ngờ trên cây.\n3. Đề xuất hướng tiếp cận tiếp theo để điều tra hoặc xử lý.`;
 
     navigator.clipboard.writeText(promptText).then(() => {
       alert("✅ Đã copy Prompt AI thành công! Bạn có thể dán vào ChatGPT/Claude để phân tích.");
@@ -1677,6 +1943,7 @@ function ElasticApiView() {
             <button className="action-btn file" onClick={() => handleFetchFile(node)} title="Kéo File (Event 11) của tiến trình này">📁</button>
             <button className="action-btn" onClick={() => handleFetchDns(node)} title="Kéo DNS (Event 22) của tiến trình này" style={{backgroundColor: '#06b6d4'}}>🌐</button>
             <button className="action-btn" onClick={() => handleFetchRegistry(node)} title="Kéo Registry (Event 13) của tiến trình này" style={{backgroundColor: '#fb923c'}}>🗄️</button>
+            <button className="action-btn" onClick={() => handleFetchPowerShell(node)} title="Giải mã PowerShell Script (Event 4104)" style={{backgroundColor: '#2563eb'}}>📜</button>
             <button className="action-btn query" onClick={() => handleCopyChildQuery(node)} title="Copy KQL tìm Process Con của tiến trình này">🔍</button>
             <button className="action-btn" onClick={() => handleDetachBranch(node)} title="Tách nhánh này ra một Tab mới" style={{backgroundColor: 'rgba(56, 189, 248, 0.2)'}}>✂️</button>
             <button className="action-btn delete" onClick={() => handleDeleteBranch(nodeId)} title="Xoá nhánh này">🗑️</button>
@@ -1688,13 +1955,14 @@ function ElasticApiView() {
       const hasFiles = node.fileEvents && node.fileEvents.length > 0;
       const hasDns = node.dnsEvents && node.dnsEvents.length > 0;
       const hasReg = node.regEvents && node.regEvents.length > 0;
+      const hasPs = node.psEvents && node.psEvents.length > 0;
       const hasChildren = node.children && node.children.length > 0;
 
       // Render Network Events
       if (node.networkEvents && node.networkEvents.length > 0) {
         node.networkEvents.forEach((netEvent, evIdx) => {
           const isLastNetwork = evIdx === node.networkEvents.length - 1;
-          const useLForNetwork = !hasChildren && !hasFiles && !hasDns && !hasReg && isLastNetwork;
+          const useLForNetwork = !hasChildren && !hasFiles && !hasDns && !hasReg && !hasPs && isLastNetwork;
           const lineType = useLForNetwork ? '└── ' : '├── ';
 
           elements.push(
@@ -1712,7 +1980,7 @@ function ElasticApiView() {
       if (node.fileEvents && node.fileEvents.length > 0) {
         node.fileEvents.forEach((fileEvent, evIdx) => {
           const isLastFile = evIdx === node.fileEvents.length - 1;
-          const useLForFile = !hasChildren && !hasDns && !hasReg && isLastFile;
+          const useLForFile = !hasChildren && !hasDns && !hasReg && !hasPs && isLastFile;
           const lineType = useLForFile ? '└── ' : '├── ';
 
           elements.push(
@@ -1730,7 +1998,7 @@ function ElasticApiView() {
       if (node.dnsEvents && node.dnsEvents.length > 0) {
         node.dnsEvents.forEach((dnsEvent, evIdx) => {
           const isLastDns = evIdx === node.dnsEvents.length - 1;
-          const useLForDns = !hasChildren && !hasReg && isLastDns;
+          const useLForDns = !hasChildren && !hasReg && !hasPs && isLastDns;
           const lineType = useLForDns ? '└── ' : '├── ';
 
           elements.push(
@@ -1748,7 +2016,7 @@ function ElasticApiView() {
       if (node.regEvents && node.regEvents.length > 0) {
         node.regEvents.forEach((regEvent, evIdx) => {
           const isLastReg = evIdx === node.regEvents.length - 1;
-          const useLForReg = !hasChildren && isLastReg;
+          const useLForReg = !hasChildren && !hasPs && isLastReg;
           const lineType = useLForReg ? '└── ' : '├── ';
 
           elements.push(
@@ -1756,6 +2024,24 @@ function ElasticApiView() {
               <span className="tree-prefix">{childPrefix + lineType}</span>
               <span className="tree-node-text reg" style={{ color: '#fb923c' }}>
                 🗄️ Registry: [{regEvent.firstTime}{regEvent.lastTime && regEvent.lastTime !== regEvent.firstTime ? ` ➔ ${regEvent.lastTime}` : ''}] {regEvent.extraStr} <span style={{ color: '#eab308', marginLeft: '8px' }}>({regEvent.count} lần)</span>
+              </span>
+            </div>
+          );
+        });
+      }
+
+      // Render PowerShell Events
+      if (node.psEvents && node.psEvents.length > 0) {
+        node.psEvents.forEach((psEvent, evIdx) => {
+          const isLastPs = evIdx === node.psEvents.length - 1;
+          const useLForPs = !hasChildren && isLastPs;
+          const lineType = useLForPs ? '└── ' : '├── ';
+
+          elements.push(
+            <div key={`${nodeId}-ps-${evIdx}`} className="tree-line">
+              <span className="tree-prefix">{childPrefix + lineType}</span>
+              <span className="tree-node-text ps" style={{ color: '#2563eb' }}>
+                📜 PowerShell: [{psEvent.firstTime}{psEvent.lastTime && psEvent.lastTime !== psEvent.firstTime ? ` ➔ ${psEvent.lastTime}` : ''}] <span style={{ fontFamily: 'monospace', backgroundColor: 'rgba(37, 99, 235, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>{psEvent.extraStr}</span> <span style={{ color: '#eab308', marginLeft: '8px' }}>({psEvent.count} lần)</span>
               </span>
             </div>
           );
@@ -1941,6 +2227,20 @@ function ElasticApiView() {
             <label>Extra Field (Registry path):</label>
             <AutocompleteInput value={evt13ExtraField} onChange={setEvt13ExtraField} placeholder="registry.path" suggestions={indexFields} multi={true} />
           </div>
+
+          <h3 style={{ marginTop: '20px', marginBottom: '10px', fontSize: '1.1rem', color: '#2563eb' }}>Cấu Hình PowerShell (Event 4104)</h3>
+          <div className="input-group">
+            <label>Event Code Field:</label>
+            <AutocompleteInput value={evt4104CodeField} onChange={setEvt4104CodeField} placeholder="winlog.event_id" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Process PID Field:</label>
+            <AutocompleteInput value={evt4104ProcessPidField} onChange={setEvt4104ProcessPidField} placeholder="winlog.process.pid" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Extra Field (Script Block):</label>
+            <AutocompleteInput value={evt4104ExtraField} onChange={setEvt4104ExtraField} placeholder="powershell.file.script_block_text" suggestions={indexFields} multi={true} />
+          </div>
         </div>
       </div>
 
@@ -2034,6 +2334,14 @@ function ElasticApiView() {
                   title="Kéo toàn bộ Registry (Event 13) cho tất cả Process trên cây"
                 >
                   🗄️ Quét Registry
+                </button>
+                <button 
+                  onClick={handleBulkFetchPowerShell} 
+                  disabled={isBuilding}
+                  style={{ width: 'auto', backgroundColor: isBuilding ? 'var(--text-secondary)' : '#2563eb', color: '#fff' }}
+                  title="Dịch toàn bộ PowerShell Script (Event 4104) cho Cây"
+                >
+                  📜 Dịch PowerShell
                 </button>
                 <button 
                   onClick={handleGeneratePrompt} 
