@@ -32,15 +32,48 @@ function ElasticApiView() {
   const [evt11ProcessPidField, setEvt11ProcessPidField] = useState('process.pid');
   const [evt11ExtraField, setEvt11ExtraField] = useState('file.path');
 
+  // Event 22 Config (DNS)
+  const [evt22CodeField, setEvt22CodeField] = useState('event.code');
+  const [evt22CodeValue, setEvt22CodeValue] = useState('22');
+  const [evt22ProcessNameField, setEvt22ProcessNameField] = useState('process.name');
+  const [evt22ProcessPidField, setEvt22ProcessPidField] = useState('process.pid');
+  const [evt22ExtraField, setEvt22ExtraField] = useState('dns.question.name');
+
   // Tree State
   const [nodes, setNodes] = useState({});
   const [isBuilding, setIsBuilding] = useState(false);
+
+  // Workspace Tabs State
+  const [workspaces, setWorkspaces] = useState([
+    { id: 'root', name: '🌳 Cây Gốc', isDownwardOnly: false }
+  ]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('root');
+  const [workspaceData, setWorkspaceData] = useState({ 'root': {} });
+
+  const getFormatUrl = (url) => {
+    let finalUrl = (url || '').trim();
+    if (!finalUrl) return '';
+    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      finalUrl = 'http://' + finalUrl;
+    }
+    try {
+      const urlObj = new URL(finalUrl);
+      if (!urlObj.port && urlObj.hostname !== 'localhost') {
+        urlObj.port = '9200';
+      }
+      return urlObj.toString().replace(/\/$/, '');
+    } catch (e) {
+      return finalUrl;
+    }
+  };
+
   const [availableIndices, setAvailableIndices] = useState([]);
   const [indexFields, setIndexFields] = useState([
     '@timestamp', 'event.code', 'process.name', 'process.pid', 'process.parent.name', 'process.parent.pid'
   ]);
   const [extraField, setExtraField] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null);
 
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -76,7 +109,7 @@ function ElasticApiView() {
       const response = await fetch(`/elastic_api/${pattern}/_mapping`, {
         headers: { 
           'Authorization': authHeader,
-          'x-target-url': apiUrl
+          'x-target-url': getFormatUrl(apiUrl)
         }
       });
       if (response.ok) {
@@ -114,29 +147,78 @@ function ElasticApiView() {
   };
 
   const handleConnectAndSync = async () => {
+    let baseIp = apiUrl.trim();
+    if (!baseIp.startsWith('http://') && !baseIp.startsWith('https://')) {
+      baseIp = 'http://' + baseIp;
+    }
+    
+    let hasCustomPort = false;
+    let urlObj = null;
     try {
-      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-      const response = await fetch(`/elastic_api/_cat/indices?format=json&h=index`, {
-        headers: { 
-          'Authorization': authHeader,
-          'x-target-url': apiUrl
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Filter out system indices starting with dot
-        const indices = data.map(d => d.index).filter(i => !i.startsWith('.'));
-        setAvailableIndices(indices);
-        
-        // Auto fetch fields for the default/current index pattern
-        await handleFetchFields(indexPattern);
-        
-        alert(`✅ Kết nối thành công! Đã tải danh sách Index và đồng bộ Fields.`);
-      } else {
-        alert('❌ Lỗi kết nối (Sai thông tin đăng nhập hoặc URL): ' + response.statusText);
-      }
-    } catch (e) {
-      alert('❌ Lỗi mạng khi kết nối tới Elastic: ' + e.message);
+       urlObj = new URL(baseIp);
+       if (urlObj.port) hasCustomPort = true;
+    } catch(e) {}
+
+    const portsToTry = hasCustomPort ? [urlObj.port] : ['9200', '80', '9000', '443'];
+    setConnectionStatus({ type: 'loading', message: `⏳ Đang dò tìm cổng kết nối API...` });
+
+    const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+    let connected = false;
+
+    for (let port of portsToTry) {
+       let testUrl = baseIp;
+       if (!hasCustomPort) {
+          try {
+            const u = new URL(baseIp);
+            if (port === '443') u.protocol = 'https:';
+            else if (port === '80') u.protocol = 'http:';
+            
+            if (port === '80' || port === '443') u.port = '';
+            else u.port = port;
+            
+            testUrl = u.toString().replace(/\/$/, '');
+          } catch(e) {}
+       } else {
+          testUrl = getFormatUrl(baseIp);
+       }
+       
+       setConnectionStatus({ type: 'loading', message: `⏳ Đang thử kết nối cổng ${port || (testUrl.startsWith('https') ? '443' : '80')}...` });
+
+       try {
+         const response = await fetch(`/elastic_api/_cat/indices?format=json&h=index`, {
+           headers: { 
+             'Authorization': authHeader,
+             'x-target-url': testUrl
+           }
+         });
+         
+         if (response.ok) {
+            setApiUrl(testUrl);
+            const data = await response.json();
+            const indices = data.map(d => d.index).filter(i => !i.startsWith('.'));
+            setAvailableIndices(indices);
+            await handleFetchFields(indexPattern);
+            
+            setConnectionStatus({ type: 'success', message: `✅ Kết nối thành công tại cổng ${port || (testUrl.startsWith('https') ? '443' : '80')}! Đã tải Index và Fields.` });
+            setTimeout(() => setConnectionStatus(null), 5000);
+            connected = true;
+            break;
+         } else if (response.status === 401 || response.status === 403) {
+            setConnectionStatus({ type: 'error', message: `❌ Tìm thấy máy chủ tại cổng ${port || (testUrl.startsWith('https') ? '443' : '80')} nhưng sai Username/Password!` });
+            connected = true;
+            break;
+         } else if (response.status !== 502) {
+            setConnectionStatus({ type: 'error', message: `❌ Lỗi kết nối (Mã lỗi ${response.status}): ` + response.statusText });
+            connected = true;
+            break;
+         }
+       } catch (e) {
+         // Fall through to next port if fetch fails entirely
+       }
+    }
+
+    if (!connected) {
+       setConnectionStatus({ type: 'error', message: `❌ Đã quét các cổng thông dụng (9200, 80, 9000, 443) nhưng không có phản hồi! Máy ảo chưa bật hoặc sai IP.` });
     }
   };
 
@@ -231,10 +313,16 @@ function ElasticApiView() {
         return "";
       };
 
+      const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
+      const isDownwardOnly = activeWorkspace ? activeWorkspace.isDownwardOnly : false;
+
       const rootQueries = roots.map(root => {
         const excludeChildren = getExclusionStr(root);
-        // Root searches for its own parents OR (its children AND NOT spam children)
-        return `((${processNameField}: "${root.name}" AND ${processPidField}: "${root.pid}") OR (${parentNameField}: "${root.name}" AND ${parentPidField}: "${root.pid}"${excludeChildren}))`;
+        if (isDownwardOnly) {
+           return `(${parentNameField}: "${root.name}" AND ${parentPidField}: "${root.pid}"${excludeChildren})`;
+        } else {
+           return `((${processNameField}: "${root.name}" AND ${processPidField}: "${root.pid}") OR (${parentNameField}: "${root.name}" AND ${parentPidField}: "${root.pid}"${excludeChildren}))`;
+        }
       });
       
       const leafQueries = leaves.map(leaf => {
@@ -264,7 +352,7 @@ function ElasticApiView() {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': authHeader,
-          'x-target-url': apiUrl
+          'x-target-url': getFormatUrl(apiUrl)
         },
         body: JSON.stringify({
           query: {
@@ -574,6 +662,118 @@ function ElasticApiView() {
     }
   };
 
+  const handleFetchDns = async (node) => {
+    try {
+      const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+
+      let excludeList = [];
+      let hasMore = true;
+      const allEventsMap = {};
+      
+      const fetchWithExclude = async (excludes) => {
+        let baseStr = `(${evt22CodeField}: "${evt22CodeValue}") AND (${evt22ProcessNameField}: "${node.name}") AND (${evt22ProcessPidField}: "${node.pid}")`;
+        if (excludes.length > 0) {
+          baseStr += ` AND (${excludes.join(" AND ")})`;
+        }
+        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+            'x-target-url': getFormatUrl(apiUrl)
+          },
+          body: JSON.stringify({
+            query: { query_string: { query: baseStr } },
+            size: 200,
+            sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+          })
+        });
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        return await response.json();
+      };
+
+      while (hasMore) {
+        const data = await fetchWithExclude(excludeList);
+        hasMore = false;
+        
+        if (data.hits && data.hits.hits) {
+          const hits = data.hits.hits;
+          let currentSpamExcludes = [];
+
+          hits.forEach(hit => {
+            const source = hit._source;
+            let extraVals = [];
+            let rawFields = {};
+            if (evt22ExtraField) {
+              const fields = evt22ExtraField.split(',').map(f => f.trim()).filter(f => f);
+              fields.forEach(f => {
+                const rawExtra = getNested(source, f);
+                if (rawExtra) {
+                  rawFields[f] = typeof rawExtra === 'object' ? JSON.stringify(rawExtra) : rawExtra.toString();
+                  extraVals.push(`${f}: ${rawFields[f]}`);
+                }
+              });
+            }
+            const time = getNested(source, '@timestamp') || '';
+            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+
+            if (!allEventsMap[extraStr]) {
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+            } else {
+              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].lastTime = time;
+            }
+          });
+
+          if (hits.length === 200) {
+            const spamGroups = Object.values(allEventsMap).filter(g => g.count >= 50);
+            spamGroups.forEach(g => {
+              const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
+              if (conditions.length > 0) {
+                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                if (!excludeList.includes(excludeStr)) {
+                  excludeList.push(excludeStr);
+                  currentSpamExcludes.push(excludeStr);
+                }
+              }
+            });
+
+            if (currentSpamExcludes.length > 0) {
+              hasMore = true;
+            }
+          }
+        }
+      }
+
+      if (Object.keys(allEventsMap).length > 0) {
+        const currentNodes = { ...nodes };
+        currentNodes[node.id] = { ...currentNodes[node.id] };
+        
+        const existingEventsMap = {};
+        if (currentNodes[node.id].dnsEvents) {
+          currentNodes[node.id].dnsEvents.forEach(e => { existingEventsMap[e.extraStr] = e; });
+        }
+        
+        Object.values(allEventsMap).forEach(e => {
+          if (existingEventsMap[e.extraStr]) {
+            existingEventsMap[e.extraStr].count += e.count;
+            existingEventsMap[e.extraStr].lastTime = e.lastTime;
+          } else {
+            existingEventsMap[e.extraStr] = e;
+          }
+        });
+
+        currentNodes[node.id].dnsEvents = Object.values(existingEventsMap);
+        setNodes(currentNodes);
+      } else {
+        alert("Không tìm thấy sự kiện DNS (Event 22) nào cho tiến trình này.");
+      }
+    } catch (error) {
+      alert("Lỗi khi kéo DNS: " + error.message);
+    }
+  };
+
   const handleBulkFetchNetwork = async () => {
     setIsBuilding(true);
     const nodeVals = Object.values(nodes);
@@ -605,7 +805,7 @@ function ElasticApiView() {
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
           const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': apiUrl },
+            headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
             body: JSON.stringify({
               query: { query_string: { query: queryStr } },
               size: 5000,
@@ -745,7 +945,7 @@ function ElasticApiView() {
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
           const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': apiUrl },
+            headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
             body: JSON.stringify({
               query: { query_string: { query: queryStr } },
               size: 5000,
@@ -853,6 +1053,144 @@ function ElasticApiView() {
     }
   };
 
+  const handleBulkFetchDns = async () => {
+    setIsBuilding(true);
+    const nodeVals = Object.values(nodes);
+    if (nodeVals.length === 0) {
+      setIsBuilding(false);
+      return;
+    }
+
+    const nodeQueries = nodeVals.map(n => `(${evt22ProcessNameField}: "${n.name}" AND ${evt22ProcessPidField}: "${n.pid}")`);
+    const chunkSize = 100;
+    let currentNodes = { ...nodes };
+    const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    let foundAny = false;
+
+    try {
+      for (let i = 0; i < nodeQueries.length; i += chunkSize) {
+        const chunk = nodeQueries.slice(i, i + chunkSize);
+        let excludeList = [];
+        let hasMore = true;
+        const bulkEventsMap = {}; 
+        
+        while (hasMore) {
+          hasMore = false;
+          let queryStr = `(${evt22CodeField}: "${evt22CodeValue}") AND (${chunk.join(" OR ")})`;
+          if (excludeList.length > 0) {
+            queryStr += ` AND (${excludeList.join(" AND ")})`;
+          }
+
+          const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
+            body: JSON.stringify({
+              query: { query_string: { query: queryStr } },
+              size: 5000,
+              sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+            })
+          });
+
+          if (!response.ok) throw new Error(`API Error: ${response.status}`);
+          const data = await response.json();
+          
+          if (data.hits && data.hits.hits) {
+            const hits = data.hits.hits;
+            let currentSpamExcludes = [];
+
+            hits.forEach(hit => {
+              const source = hit._source;
+              const pName = getNested(source, evt22ProcessNameField) || 'Unknown';
+              const pPid = getNested(source, evt22ProcessPidField) || 'Unknown';
+              const processId = `${pName}_${pPid}`;
+
+              if (currentNodes[processId]) {
+                let extraVals = [];
+                let rawFields = {};
+                if (evt22ExtraField) {
+                  const fields = evt22ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach(f => {
+                    const rawExtra = getNested(source, f);
+                    if (rawExtra) {
+                      rawFields[f] = typeof rawExtra === 'object' ? JSON.stringify(rawExtra) : rawExtra.toString();
+                      extraVals.push(`${f}: ${rawFields[f]}`);
+                    }
+                  });
+                }
+                const time = getNested(source, '@timestamp') || '';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+
+                if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
+                if (!bulkEventsMap[processId][extraStr]) {
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                } else {
+                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].lastTime = time;
+                }
+              }
+            });
+
+            if (hits.length === 5000) {
+              Object.values(bulkEventsMap).forEach(procMap => {
+                const spamGroups = Object.values(procMap).filter(g => g.count >= 200);
+                spamGroups.forEach(g => {
+                  const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
+                  if (conditions.length > 0) {
+                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    if (!excludeList.includes(excludeStr)) {
+                      excludeList.push(excludeStr);
+                      currentSpamExcludes.push(excludeStr);
+                    }
+                  }
+                });
+              });
+
+              if (currentSpamExcludes.length > 0) {
+                hasMore = true;
+              }
+            }
+          }
+        }
+
+        Object.keys(bulkEventsMap).forEach(pId => {
+          if (Object.keys(bulkEventsMap[pId]).length > 0) {
+            const existingMap = {};
+            if (currentNodes[pId].dnsEvents) {
+              currentNodes[pId].dnsEvents.forEach(e => { existingMap[e.extraStr] = e; });
+            }
+            
+            Object.values(bulkEventsMap[pId]).forEach(e => {
+              if (existingMap[e.extraStr]) {
+                existingMap[e.extraStr].count += e.count;
+                existingMap[e.extraStr].lastTime = e.lastTime;
+              } else {
+                existingMap[e.extraStr] = e;
+              }
+            });
+            
+            const newEvents = Object.values(existingMap);
+            if (newEvents.length > 0) {
+              currentNodes[pId].dnsEvents = newEvents;
+              foundAny = true;
+            }
+          }
+        });
+      }
+
+      if (foundAny) {
+        setNodes(currentNodes);
+        alert("✅ Đã hoàn tất kéo sự kiện DNS (Event 22) cho toàn bộ Cây!");
+      } else {
+        alert("Không tìm thấy sự kiện DNS nào mới cho các tiến trình hiện tại.");
+      }
+    } catch (error) {
+      alert("Lỗi khi kéo DNS tổng: " + error.message);
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
   const handlePruneSpam = () => {
     const currentNodes = { ...nodes };
     let deletedCount = 0;
@@ -918,6 +1256,57 @@ function ElasticApiView() {
     }
   };
 
+  const handleDetachBranch = (node) => {
+    const newId = 'ws_' + Date.now();
+    const newName = `🌿 ${node.name} (${node.pid})`;
+    
+    const newNodes = {};
+    const copyNodeAndDescendants = (nId) => {
+        if (!nodes[nId]) return;
+        newNodes[nId] = { ...nodes[nId] };
+        if (nId === node.id) {
+           newNodes[nId].parents = []; // Cut ties with parent
+        }
+        newNodes[nId].children.forEach(childId => copyNodeAndDescendants(childId));
+    };
+    copyNodeAndDescendants(node.id);
+    
+    setWorkspaceData(prev => ({
+      ...prev,
+      [activeWorkspaceId]: nodes,
+      [newId]: newNodes
+    }));
+    
+    setWorkspaces(prev => [...prev, { id: newId, name: newName, isDownwardOnly: true }]);
+    setActiveWorkspaceId(newId);
+    setNodes(newNodes);
+  };
+
+  const handleTabSwitch = (id) => {
+    if (id === activeWorkspaceId) return;
+    setWorkspaceData(prev => ({ ...prev, [activeWorkspaceId]: nodes }));
+    setActiveWorkspaceId(id);
+    setNodes(workspaceData[id] || {});
+  };
+
+  const handleCloseTab = (id, e) => {
+    e.stopPropagation(); // prevent switching tab when clicking close
+    if (id === 'root') return; // Cannot close root
+
+    const newWorkspaces = workspaces.filter(w => w.id !== id);
+    const newWorkspaceData = { ...workspaceData, [activeWorkspaceId]: nodes };
+    delete newWorkspaceData[id];
+
+    if (activeWorkspaceId === id) {
+       // Switch to root if closing active tab
+       setActiveWorkspaceId('root');
+       setNodes(newWorkspaceData['root']);
+    } else {
+       setWorkspaceData(newWorkspaceData);
+    }
+    setWorkspaces(newWorkspaces);
+  };
+
   // Rendering Tree
   const renderTree = () => {
     const nodeVals = Object.values(nodes);
@@ -954,7 +1343,9 @@ function ElasticApiView() {
           <div className="node-actions">
             <button className="action-btn network" onClick={() => handleFetchNetwork(node)} title="Kéo Network (Event 3) của tiến trình này">📡</button>
             <button className="action-btn file" onClick={() => handleFetchFile(node)} title="Kéo File (Event 11) của tiến trình này">📁</button>
+            <button className="action-btn" onClick={() => handleFetchDns(node)} title="Kéo DNS (Event 22) của tiến trình này" style={{backgroundColor: '#06b6d4'}}>🌐</button>
             <button className="action-btn query" onClick={() => handleCopyChildQuery(node)} title="Copy KQL tìm Process Con của tiến trình này">🔍</button>
+            <button className="action-btn" onClick={() => handleDetachBranch(node)} title="Tách nhánh này ra một Tab mới" style={{backgroundColor: 'rgba(56, 189, 248, 0.2)'}}>✂️</button>
             <button className="action-btn delete" onClick={() => handleDeleteBranch(nodeId)} title="Xoá nhánh này">🗑️</button>
           </div>
         </div>
@@ -962,13 +1353,14 @@ function ElasticApiView() {
 
       const childPrefix = prefix + (isLast ? '    ' : '│   ');
       const hasFiles = node.fileEvents && node.fileEvents.length > 0;
+      const hasDns = node.dnsEvents && node.dnsEvents.length > 0;
       const hasChildren = node.children && node.children.length > 0;
 
       // Render Network Events
       if (node.networkEvents && node.networkEvents.length > 0) {
         node.networkEvents.forEach((netEvent, evIdx) => {
           const isLastNetwork = evIdx === node.networkEvents.length - 1;
-          const useLForNetwork = !hasChildren && !hasFiles && isLastNetwork;
+          const useLForNetwork = !hasChildren && !hasFiles && !hasDns && isLastNetwork;
           const lineType = useLForNetwork ? '└── ' : '├── ';
 
           elements.push(
@@ -986,7 +1378,7 @@ function ElasticApiView() {
       if (node.fileEvents && node.fileEvents.length > 0) {
         node.fileEvents.forEach((fileEvent, evIdx) => {
           const isLastFile = evIdx === node.fileEvents.length - 1;
-          const useLForFile = !hasChildren && isLastFile;
+          const useLForFile = !hasChildren && !hasDns && isLastFile;
           const lineType = useLForFile ? '└── ' : '├── ';
 
           elements.push(
@@ -994,6 +1386,24 @@ function ElasticApiView() {
               <span className="tree-prefix">{childPrefix + lineType}</span>
               <span className="tree-node-text file" style={{ color: '#f472b6' }}>
                 📁 File: [{fileEvent.firstTime}{fileEvent.lastTime && fileEvent.lastTime !== fileEvent.firstTime ? ` ➔ ${fileEvent.lastTime}` : ''}] {fileEvent.extraStr} <span style={{ color: '#eab308', marginLeft: '8px' }}>({fileEvent.count} lần)</span>
+              </span>
+            </div>
+          );
+        });
+      }
+
+      // Render DNS Events
+      if (node.dnsEvents && node.dnsEvents.length > 0) {
+        node.dnsEvents.forEach((dnsEvent, evIdx) => {
+          const isLastDns = evIdx === node.dnsEvents.length - 1;
+          const useLForDns = !hasChildren && isLastDns;
+          const lineType = useLForDns ? '└── ' : '├── ';
+
+          elements.push(
+            <div key={`${nodeId}-dns-${evIdx}`} className="tree-line">
+              <span className="tree-prefix">{childPrefix + lineType}</span>
+              <span className="tree-node-text dns" style={{ color: '#06b6d4' }}>
+                🌐 DNS: [{dnsEvent.firstTime}{dnsEvent.lastTime && dnsEvent.lastTime !== dnsEvent.firstTime ? ` ➔ ${dnsEvent.lastTime}` : ''}] {dnsEvent.extraStr} <span style={{ color: '#eab308', marginLeft: '8px' }}>({dnsEvent.count} lần)</span>
               </span>
             </div>
           );
@@ -1040,9 +1450,23 @@ function ElasticApiView() {
             </div>
           </div>
           
-          <button type="button" onClick={handleConnectAndSync} style={{ marginBottom: '20px', backgroundColor: '#10b981' }}>
+          <button type="button" onClick={handleConnectAndSync} style={{ marginBottom: connectionStatus ? '8px' : '20px', backgroundColor: '#10b981' }}>
              🔌 Kiểm tra Kết Nối & Đồng Bộ Dữ Liệu
           </button>
+          {connectionStatus && (
+            <div style={{
+              padding: '10px',
+              marginBottom: '20px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              backgroundColor: connectionStatus.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : connectionStatus.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+              color: connectionStatus.type === 'success' ? '#34d399' : connectionStatus.type === 'error' ? '#f87171' : '#9ca3af',
+              border: `1px solid ${connectionStatus.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : connectionStatus.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.1)'}`
+            }}>
+              {connectionStatus.message}
+            </div>
+          )}
+
 
           <div className="input-group">
             <label>Index Pattern (Gõ tự do hoặc chọn ở dưới):</label>
@@ -1129,13 +1553,70 @@ function ElasticApiView() {
             <label>Extra Field (File data):</label>
             <AutocompleteInput value={evt11ExtraField} onChange={setEvt11ExtraField} placeholder="file.path, file.name" suggestions={indexFields} multi={true} />
           </div>
+
+          <h3 style={{ marginTop: '20px', marginBottom: '10px', fontSize: '1.1rem', color: '#06b6d4' }}>Cấu Hình DNS (Event 22)</h3>
+          <div className="input-group">
+            <label>Event Code Field:</label>
+            <AutocompleteInput value={evt22CodeField} onChange={setEvt22CodeField} placeholder="event.code" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Process Name:</label>
+            <AutocompleteInput value={evt22ProcessNameField} onChange={setEvt22ProcessNameField} placeholder="process.name" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Process PID:</label>
+            <AutocompleteInput value={evt22ProcessPidField} onChange={setEvt22ProcessPidField} placeholder="process.pid" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Extra Field (DNS query):</label>
+            <AutocompleteInput value={evt22ExtraField} onChange={setEvt22ExtraField} placeholder="dns.question.name" suggestions={indexFields} multi={true} />
+          </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="main-content">
+      <div className="main-content" id="elastic-tree-container" style={isFullScreen ? { padding: '20px', backgroundColor: 'var(--panel-bg)', overflowY: 'auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 } : {}}>
+        {isFullScreen && (
+          <button onClick={handleToggleFullScreen} style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10000, padding: '8px 12px', backgroundColor: '#ef4444' }}>
+            Khôi phục màn hình
+          </button>
+        )}
+
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--panel-border)', marginBottom: '15px', overflowX: 'auto' }}>
+          {workspaces.map(ws => (
+            <div 
+              key={ws.id}
+              onClick={() => handleTabSwitch(ws.id)}
+              style={{
+                padding: '10px 20px',
+                cursor: 'pointer',
+                backgroundColor: activeWorkspaceId === ws.id ? 'var(--panel-bg)' : 'transparent',
+                borderTop: activeWorkspaceId === ws.id ? '2px solid #10b981' : '2px solid transparent',
+                borderRight: '1px solid var(--panel-border)',
+                borderLeft: '1px solid var(--panel-border)',
+                color: activeWorkspaceId === ws.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontWeight: activeWorkspaceId === ws.id ? 'bold' : 'normal',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {ws.name}
+              {ws.id !== 'root' && (
+                <span 
+                  onClick={(e) => handleCloseTab(ws.id, e)}
+                  style={{ color: '#f87171', cursor: 'pointer', padding: '0 4px', fontSize: '16px', fontWeight: 'bold' }}
+                  title="Đóng nhánh"
+                >
+                  ×
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
         <div className="card full-height">
-          <h2>Tự Động Build Process Tree</h2>
+          <h2>Tự Động Build Process Tree {activeWorkspaceId !== 'root' ? '(Chế độ Nhánh - Bỏ qua tìm Cha)' : ''}</h2>
           <div className="api-config-grid" style={{ marginBottom: '15px' }}>
             <div className="input-group" style={{ marginBottom: 0 }}>
               <label>Tên Tiến trình (Process Name):</label>
@@ -1172,6 +1653,14 @@ function ElasticApiView() {
                   title="Kéo toàn bộ File (Event 11) cho tất cả Process trên cây"
                 >
                   📁 Quét File
+                </button>
+                <button 
+                  onClick={handleBulkFetchDns} 
+                  disabled={isBuilding}
+                  style={{ width: 'auto', backgroundColor: isBuilding ? 'var(--text-secondary)' : '#06b6d4', color: '#fff' }}
+                  title="Kéo toàn bộ DNS (Event 22) cho tất cả Process trên cây"
+                >
+                  🌐 Quét DNS
                 </button>
               </>
             )}

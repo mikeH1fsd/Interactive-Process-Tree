@@ -36,10 +36,18 @@ function App() {
         </div>
       </header>
 
-      {platform === 'elastic' && <ElasticView />}
-      {platform === 'splunk' && <SplunkView />}
-      {platform === 'elastic_api' && <ElasticApiView />}
-      {platform === 'splunk_api' && <SplunkApiView />}
+      <div style={{ display: platform === 'elastic' ? 'block' : 'none' }}>
+        <ElasticView />
+      </div>
+      <div style={{ display: platform === 'splunk' ? 'block' : 'none' }}>
+        <SplunkView />
+      </div>
+      <div style={{ display: platform === 'elastic_api' ? 'block' : 'none' }}>
+        <ElasticApiView />
+      </div>
+      <div style={{ display: platform === 'splunk_api' ? 'block' : 'none' }}>
+        <SplunkApiView />
+      </div>
     </div>
   );
 }
