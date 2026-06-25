@@ -1450,7 +1450,6 @@ function ElasticApiView() {
     } catch (error) {
       alert("Lỗi khi kéo Registry tổng: " + error.message);
     } finally {
-    } finally {
       setIsBuilding(false);
     }
   };
