@@ -39,6 +39,13 @@ function ElasticApiView() {
   const [evt22ProcessPidField, setEvt22ProcessPidField] = useState('process.pid');
   const [evt22ExtraField, setEvt22ExtraField] = useState('dns.question.name');
 
+  // Event 13 Config (Registry)
+  const [evt13CodeField, setEvt13CodeField] = useState('event.code');
+  const [evt13CodeValue, setEvt13CodeValue] = useState('13');
+  const [evt13ProcessNameField, setEvt13ProcessNameField] = useState('process.name');
+  const [evt13ProcessPidField, setEvt13ProcessPidField] = useState('process.pid');
+  const [evt13ExtraField, setEvt13ExtraField] = useState('registry.path');
+
   // Tree State
   const [nodes, setNodes] = useState({});
   const [isBuilding, setIsBuilding] = useState(false);
@@ -774,6 +781,118 @@ function ElasticApiView() {
     }
   };
 
+  const handleFetchRegistry = async (node) => {
+    try {
+      const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+
+      let excludeList = [];
+      let hasMore = true;
+      const allEventsMap = {};
+      
+      const fetchWithExclude = async (excludes) => {
+        let baseStr = `(${evt13CodeField}: "${evt13CodeValue}") AND (${evt13ProcessNameField}: "${node.name}") AND (${evt13ProcessPidField}: "${node.pid}")`;
+        if (excludes.length > 0) {
+          baseStr += ` AND (${excludes.join(" AND ")})`;
+        }
+        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+            'x-target-url': getFormatUrl(apiUrl)
+          },
+          body: JSON.stringify({
+            query: { query_string: { query: baseStr } },
+            size: 200,
+            sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+          })
+        });
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        return await response.json();
+      };
+
+      while (hasMore) {
+        const data = await fetchWithExclude(excludeList);
+        hasMore = false;
+        
+        if (data.hits && data.hits.hits) {
+          const hits = data.hits.hits;
+          let currentSpamExcludes = [];
+
+          hits.forEach(hit => {
+            const source = hit._source;
+            let extraVals = [];
+            let rawFields = {};
+            if (evt13ExtraField) {
+              const fields = evt13ExtraField.split(',').map(f => f.trim()).filter(f => f);
+              fields.forEach(f => {
+                const rawExtra = getNested(source, f);
+                if (rawExtra) {
+                  rawFields[f] = typeof rawExtra === 'object' ? JSON.stringify(rawExtra) : rawExtra.toString();
+                  extraVals.push(`${f}: ${rawFields[f]}`);
+                }
+              });
+            }
+            const time = getNested(source, '@timestamp') || '';
+            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+
+            if (!allEventsMap[extraStr]) {
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+            } else {
+              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].lastTime = time;
+            }
+          });
+
+          if (hits.length === 200) {
+            const spamGroups = Object.values(allEventsMap).filter(g => g.count >= 50);
+            spamGroups.forEach(g => {
+              const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
+              if (conditions.length > 0) {
+                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                if (!excludeList.includes(excludeStr)) {
+                  excludeList.push(excludeStr);
+                  currentSpamExcludes.push(excludeStr);
+                }
+              }
+            });
+
+            if (currentSpamExcludes.length > 0) {
+              hasMore = true;
+            }
+          }
+        }
+      }
+
+      if (Object.keys(allEventsMap).length > 0) {
+        const currentNodes = { ...nodes };
+        currentNodes[node.id] = { ...currentNodes[node.id] };
+        
+        const existingEventsMap = {};
+        if (currentNodes[node.id].regEvents) {
+          currentNodes[node.id].regEvents.forEach(e => { existingEventsMap[e.extraStr] = e; });
+        }
+        
+        Object.values(allEventsMap).forEach(e => {
+          if (existingEventsMap[e.extraStr]) {
+            existingEventsMap[e.extraStr].count += e.count;
+            existingEventsMap[e.extraStr].lastTime = e.lastTime;
+          } else {
+            existingEventsMap[e.extraStr] = e;
+          }
+        });
+
+        currentNodes[node.id].regEvents = Object.values(existingEventsMap);
+        setNodes(currentNodes);
+      } else {
+        alert("Không tìm thấy sự kiện Registry (Event 13) nào cho tiến trình này.");
+      }
+    } catch (error) {
+      alert("Lỗi khi kéo Registry: " + error.message);
+    }
+  };
+
   const handleBulkFetchNetwork = async () => {
     setIsBuilding(true);
     const nodeVals = Object.values(nodes);
@@ -1191,6 +1310,144 @@ function ElasticApiView() {
     }
   };
 
+  const handleBulkFetchRegistry = async () => {
+    setIsBuilding(true);
+    const nodeVals = Object.values(nodes);
+    if (nodeVals.length === 0) {
+      setIsBuilding(false);
+      return;
+    }
+
+    const nodeQueries = nodeVals.map(n => `(${evt13ProcessNameField}: "${n.name}" AND ${evt13ProcessPidField}: "${n.pid}")`);
+    const chunkSize = 100;
+    let currentNodes = { ...nodes };
+    const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    let foundAny = false;
+
+    try {
+      for (let i = 0; i < nodeQueries.length; i += chunkSize) {
+        const chunk = nodeQueries.slice(i, i + chunkSize);
+        let excludeList = [];
+        let hasMore = true;
+        const bulkEventsMap = {}; 
+        
+        while (hasMore) {
+          hasMore = false;
+          let queryStr = `(${evt13CodeField}: "${evt13CodeValue}") AND (${chunk.join(" OR ")})`;
+          if (excludeList.length > 0) {
+            queryStr += ` AND (${excludeList.join(" AND ")})`;
+          }
+
+          const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
+            body: JSON.stringify({
+              query: { query_string: { query: queryStr } },
+              size: 5000,
+              sort: [ { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } } ]
+            })
+          });
+
+          if (!response.ok) throw new Error(`API Error: ${response.status}`);
+          const data = await response.json();
+          
+          if (data.hits && data.hits.hits) {
+            const hits = data.hits.hits;
+            let currentSpamExcludes = [];
+
+            hits.forEach(hit => {
+              const source = hit._source;
+              const pName = getNested(source, evt13ProcessNameField) || 'Unknown';
+              const pPid = getNested(source, evt13ProcessPidField) || 'Unknown';
+              const processId = `${pName}_${pPid}`;
+
+              if (currentNodes[processId]) {
+                let extraVals = [];
+                let rawFields = {};
+                if (evt13ExtraField) {
+                  const fields = evt13ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach(f => {
+                    const rawExtra = getNested(source, f);
+                    if (rawExtra) {
+                      rawFields[f] = typeof rawExtra === 'object' ? JSON.stringify(rawExtra) : rawExtra.toString();
+                      extraVals.push(`${f}: ${rawFields[f]}`);
+                    }
+                  });
+                }
+                const time = getNested(source, '@timestamp') || '';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+
+                if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
+                if (!bulkEventsMap[processId][extraStr]) {
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                } else {
+                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].lastTime = time;
+                }
+              }
+            });
+
+            if (hits.length === 5000) {
+              Object.values(bulkEventsMap).forEach(procMap => {
+                const spamGroups = Object.values(procMap).filter(g => g.count >= 200);
+                spamGroups.forEach(g => {
+                  const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
+                  if (conditions.length > 0) {
+                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    if (!excludeList.includes(excludeStr)) {
+                      excludeList.push(excludeStr);
+                      currentSpamExcludes.push(excludeStr);
+                    }
+                  }
+                });
+              });
+
+              if (currentSpamExcludes.length > 0) {
+                hasMore = true;
+              }
+            }
+          }
+        }
+
+        Object.keys(bulkEventsMap).forEach(pId => {
+          if (Object.keys(bulkEventsMap[pId]).length > 0) {
+            const existingMap = {};
+            if (currentNodes[pId].regEvents) {
+              currentNodes[pId].regEvents.forEach(e => { existingMap[e.extraStr] = e; });
+            }
+            
+            Object.values(bulkEventsMap[pId]).forEach(e => {
+              if (existingMap[e.extraStr]) {
+                existingMap[e.extraStr].count += e.count;
+                existingMap[e.extraStr].lastTime = e.lastTime;
+              } else {
+                existingMap[e.extraStr] = e;
+              }
+            });
+            
+            const newEvents = Object.values(existingMap);
+            if (newEvents.length > 0) {
+              currentNodes[pId].regEvents = newEvents;
+              foundAny = true;
+            }
+          }
+        });
+      }
+
+      if (foundAny) {
+        setNodes(currentNodes);
+        alert("✅ Đã hoàn tất kéo sự kiện Registry (Event 13) cho toàn bộ Cây!");
+      } else {
+        alert("Không tìm thấy sự kiện Registry nào mới cho các tiến trình hiện tại.");
+      }
+    } catch (error) {
+      alert("Lỗi khi kéo Registry tổng: " + error.message);
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
   const handleGeneratePrompt = () => {
     const nodeVals = Object.values(nodes);
     if (nodeVals.length === 0) {
@@ -1235,6 +1492,12 @@ function ElasticApiView() {
            treeText += `${childPrefix}├── [DNS] ${evt.extraStr} (x${evt.count})\n`;
         });
       }
+      
+      if (node.regEvents && node.regEvents.length > 0) {
+        node.regEvents.forEach(evt => {
+           treeText += `${childPrefix}├── [Registry] ${evt.extraStr} (x${evt.count})\n`;
+        });
+      }
 
       const sortedChildren = [...node.children].sort((aId, bId) => {
         const timeA = new Date(nodes[aId]?.time || 0).getTime() || 0;
@@ -1251,7 +1514,7 @@ function ElasticApiView() {
       buildTextNode(root.id, '', idx === roots.length - 1);
     });
 
-    const promptText = `Dưới đây là một cây tiến trình (Process Tree) trích xuất từ hệ thống Windows bằng Sysmon/Elasticsearch.\nCác nhánh bao gồm sự kiện Network, File và phân giải DNS.\n\n\`\`\`\n${treeText}\`\`\`\n\nHãy đóng vai một chuyên gia Cyber Security / Threat Hunter phân tích chuỗi sự kiện này:\n1. Bạn có thấy dấu hiệu nào nguy hiểm hoặc bất thường không? (Ví dụ: Malware, C2 Communication, Lateral Movement, Privilege Escalation...)\n2. Chỉ ra chính xác các chi tiết đáng ngờ trên cây.\n3. Đề xuất hướng tiếp cận tiếp theo để điều tra hoặc xử lý.`;
+    const promptText = `Dưới đây là một cây tiến trình (Process Tree) trích xuất từ hệ thống Windows bằng Sysmon/Elasticsearch.\nCác nhánh bao gồm sự kiện Network, File, DNS và Registry.\n\n\`\`\`\n${treeText}\`\`\`\n\nHãy đóng vai một chuyên gia Cyber Security / Threat Hunter phân tích chuỗi sự kiện này:\n1. Bạn có thấy dấu hiệu nào nguy hiểm hoặc bất thường không? (Ví dụ: Malware, C2 Communication, Lateral Movement, Privilege Escalation...)\n2. Chỉ ra chính xác các chi tiết đáng ngờ trên cây.\n3. Đề xuất hướng tiếp cận tiếp theo để điều tra hoặc xử lý.`;
 
     navigator.clipboard.writeText(promptText).then(() => {
       alert("✅ Đã copy Prompt AI thành công! Bạn có thể dán vào ChatGPT/Claude để phân tích.");
@@ -1413,6 +1676,7 @@ function ElasticApiView() {
             <button className="action-btn network" onClick={() => handleFetchNetwork(node)} title="Kéo Network (Event 3) của tiến trình này">📡</button>
             <button className="action-btn file" onClick={() => handleFetchFile(node)} title="Kéo File (Event 11) của tiến trình này">📁</button>
             <button className="action-btn" onClick={() => handleFetchDns(node)} title="Kéo DNS (Event 22) của tiến trình này" style={{backgroundColor: '#06b6d4'}}>🌐</button>
+            <button className="action-btn" onClick={() => handleFetchRegistry(node)} title="Kéo Registry (Event 13) của tiến trình này" style={{backgroundColor: '#fb923c'}}>🗄️</button>
             <button className="action-btn query" onClick={() => handleCopyChildQuery(node)} title="Copy KQL tìm Process Con của tiến trình này">🔍</button>
             <button className="action-btn" onClick={() => handleDetachBranch(node)} title="Tách nhánh này ra một Tab mới" style={{backgroundColor: 'rgba(56, 189, 248, 0.2)'}}>✂️</button>
             <button className="action-btn delete" onClick={() => handleDeleteBranch(nodeId)} title="Xoá nhánh này">🗑️</button>
@@ -1423,13 +1687,14 @@ function ElasticApiView() {
       const childPrefix = prefix + (isLast ? '    ' : '│   ');
       const hasFiles = node.fileEvents && node.fileEvents.length > 0;
       const hasDns = node.dnsEvents && node.dnsEvents.length > 0;
+      const hasReg = node.regEvents && node.regEvents.length > 0;
       const hasChildren = node.children && node.children.length > 0;
 
       // Render Network Events
       if (node.networkEvents && node.networkEvents.length > 0) {
         node.networkEvents.forEach((netEvent, evIdx) => {
           const isLastNetwork = evIdx === node.networkEvents.length - 1;
-          const useLForNetwork = !hasChildren && !hasFiles && !hasDns && isLastNetwork;
+          const useLForNetwork = !hasChildren && !hasFiles && !hasDns && !hasReg && isLastNetwork;
           const lineType = useLForNetwork ? '└── ' : '├── ';
 
           elements.push(
@@ -1447,7 +1712,7 @@ function ElasticApiView() {
       if (node.fileEvents && node.fileEvents.length > 0) {
         node.fileEvents.forEach((fileEvent, evIdx) => {
           const isLastFile = evIdx === node.fileEvents.length - 1;
-          const useLForFile = !hasChildren && !hasDns && isLastFile;
+          const useLForFile = !hasChildren && !hasDns && !hasReg && isLastFile;
           const lineType = useLForFile ? '└── ' : '├── ';
 
           elements.push(
@@ -1465,7 +1730,7 @@ function ElasticApiView() {
       if (node.dnsEvents && node.dnsEvents.length > 0) {
         node.dnsEvents.forEach((dnsEvent, evIdx) => {
           const isLastDns = evIdx === node.dnsEvents.length - 1;
-          const useLForDns = !hasChildren && isLastDns;
+          const useLForDns = !hasChildren && !hasReg && isLastDns;
           const lineType = useLForDns ? '└── ' : '├── ';
 
           elements.push(
@@ -1473,6 +1738,24 @@ function ElasticApiView() {
               <span className="tree-prefix">{childPrefix + lineType}</span>
               <span className="tree-node-text dns" style={{ color: '#06b6d4' }}>
                 🌐 DNS: [{dnsEvent.firstTime}{dnsEvent.lastTime && dnsEvent.lastTime !== dnsEvent.firstTime ? ` ➔ ${dnsEvent.lastTime}` : ''}] {dnsEvent.extraStr} <span style={{ color: '#eab308', marginLeft: '8px' }}>({dnsEvent.count} lần)</span>
+              </span>
+            </div>
+          );
+        });
+      }
+
+      // Render Registry Events
+      if (node.regEvents && node.regEvents.length > 0) {
+        node.regEvents.forEach((regEvent, evIdx) => {
+          const isLastReg = evIdx === node.regEvents.length - 1;
+          const useLForReg = !hasChildren && isLastReg;
+          const lineType = useLForReg ? '└── ' : '├── ';
+
+          elements.push(
+            <div key={`${nodeId}-reg-${evIdx}`} className="tree-line">
+              <span className="tree-prefix">{childPrefix + lineType}</span>
+              <span className="tree-node-text reg" style={{ color: '#fb923c' }}>
+                🗄️ Registry: [{regEvent.firstTime}{regEvent.lastTime && regEvent.lastTime !== regEvent.firstTime ? ` ➔ ${regEvent.lastTime}` : ''}] {regEvent.extraStr} <span style={{ color: '#eab308', marginLeft: '8px' }}>({regEvent.count} lần)</span>
               </span>
             </div>
           );
@@ -1640,16 +1923,29 @@ function ElasticApiView() {
             <label>Extra Field (DNS query):</label>
             <AutocompleteInput value={evt22ExtraField} onChange={setEvt22ExtraField} placeholder="dns.question.name" suggestions={indexFields} multi={true} />
           </div>
+
+          <h3 style={{ marginTop: '20px', marginBottom: '10px', fontSize: '1.1rem', color: '#fb923c' }}>Cấu Hình Registry (Event 13)</h3>
+          <div className="input-group">
+            <label>Event Code Field:</label>
+            <AutocompleteInput value={evt13CodeField} onChange={setEvt13CodeField} placeholder="event.code" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Process Name:</label>
+            <AutocompleteInput value={evt13ProcessNameField} onChange={setEvt13ProcessNameField} placeholder="process.name" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Process PID:</label>
+            <AutocompleteInput value={evt13ProcessPidField} onChange={setEvt13ProcessPidField} placeholder="process.pid" suggestions={indexFields} />
+          </div>
+          <div className="input-group">
+            <label>Extra Field (Registry path):</label>
+            <AutocompleteInput value={evt13ExtraField} onChange={setEvt13ExtraField} placeholder="registry.path" suggestions={indexFields} multi={true} />
+          </div>
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="main-content" id="elastic-tree-container" style={isFullScreen ? { padding: '20px', backgroundColor: 'var(--panel-bg)', overflowY: 'auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 } : {}}>
-        {isFullScreen && (
-          <button onClick={handleToggleFullScreen} style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10000, padding: '8px 12px', backgroundColor: '#ef4444' }}>
-            Khôi phục màn hình
-          </button>
-        )}
 
         <div style={{ display: 'flex', borderBottom: '1px solid var(--panel-border)', marginBottom: '15px', overflowX: 'auto' }}>
           {workspaces.map(ws => (
@@ -1730,6 +2026,14 @@ function ElasticApiView() {
                   title="Kéo toàn bộ DNS (Event 22) cho tất cả Process trên cây"
                 >
                   🌐 Quét DNS
+                </button>
+                <button 
+                  onClick={handleBulkFetchRegistry} 
+                  disabled={isBuilding}
+                  style={{ width: 'auto', backgroundColor: isBuilding ? 'var(--text-secondary)' : '#fb923c', color: '#fff' }}
+                  title="Kéo toàn bộ Registry (Event 13) cho tất cả Process trên cây"
+                >
+                  🗄️ Quét Registry
                 </button>
                 <button 
                   onClick={handleGeneratePrompt} 
