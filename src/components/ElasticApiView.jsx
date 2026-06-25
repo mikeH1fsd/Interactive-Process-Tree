@@ -1191,6 +1191,75 @@ function ElasticApiView() {
     }
   };
 
+  const handleGeneratePrompt = () => {
+    const nodeVals = Object.values(nodes);
+    if (nodeVals.length === 0) {
+      alert("Cây hiện tại đang trống. Vui lòng build cây trước!");
+      return;
+    }
+
+    let roots = nodeVals.filter(n => n.parents.length === 0);
+    if (roots.length === 0) roots = [nodeVals[0]];
+    
+    roots.sort((a, b) => {
+      const timeA = new Date(a.time || 0).getTime() || 0;
+      const timeB = new Date(b.time || 0).getTime() || 0;
+      return timeA - timeB;
+    });
+
+    let treeText = "";
+    
+    const buildTextNode = (nodeId, prefix = '', isLast = true) => {
+      const node = nodes[nodeId];
+      if (!node) return;
+
+      const linePrefix = prefix + (isLast ? '└── ' : '├── ');
+      treeText += `${linePrefix}[Process] ${node.name} (PID: ${node.pid}) [${node.time}] ${node.extra ? `| Extra: ${node.extra}` : ''}\n`;
+
+      const childPrefix = prefix + (isLast ? '    ' : '│   ');
+
+      if (node.networkEvents && node.networkEvents.length > 0) {
+        node.networkEvents.forEach(evt => {
+           treeText += `${childPrefix}├── [Network] ${evt.extraStr} (x${evt.count})\n`;
+        });
+      }
+      
+      if (node.fileEvents && node.fileEvents.length > 0) {
+        node.fileEvents.forEach(evt => {
+           treeText += `${childPrefix}├── [File] ${evt.extraStr} (x${evt.count})\n`;
+        });
+      }
+
+      if (node.dnsEvents && node.dnsEvents.length > 0) {
+        node.dnsEvents.forEach(evt => {
+           treeText += `${childPrefix}├── [DNS] ${evt.extraStr} (x${evt.count})\n`;
+        });
+      }
+
+      const sortedChildren = [...node.children].sort((aId, bId) => {
+        const timeA = new Date(nodes[aId]?.time || 0).getTime() || 0;
+        const timeB = new Date(nodes[bId]?.time || 0).getTime() || 0;
+        return timeA - timeB;
+      });
+
+      sortedChildren.forEach((childId, index) => {
+        buildTextNode(childId, childPrefix, index === sortedChildren.length - 1);
+      });
+    };
+
+    roots.forEach((root, idx) => {
+      buildTextNode(root.id, '', idx === roots.length - 1);
+    });
+
+    const promptText = `Dưới đây là một cây tiến trình (Process Tree) trích xuất từ hệ thống Windows bằng Sysmon/Elasticsearch.\nCác nhánh bao gồm sự kiện Network, File và phân giải DNS.\n\n\`\`\`\n${treeText}\`\`\`\n\nHãy đóng vai một chuyên gia Cyber Security / Threat Hunter phân tích chuỗi sự kiện này:\n1. Bạn có thấy dấu hiệu nào nguy hiểm hoặc bất thường không? (Ví dụ: Malware, C2 Communication, Lateral Movement, Privilege Escalation...)\n2. Chỉ ra chính xác các chi tiết đáng ngờ trên cây.\n3. Đề xuất hướng tiếp cận tiếp theo để điều tra hoặc xử lý.`;
+
+    navigator.clipboard.writeText(promptText).then(() => {
+      alert("✅ Đã copy Prompt AI thành công! Bạn có thể dán vào ChatGPT/Claude để phân tích.");
+    }).catch(err => {
+      alert("❌ Không thể copy, vui lòng thử lại! " + err);
+    });
+  };
+
   const handlePruneSpam = () => {
     const currentNodes = { ...nodes };
     let deletedCount = 0;
@@ -1661,6 +1730,14 @@ function ElasticApiView() {
                   title="Kéo toàn bộ DNS (Event 22) cho tất cả Process trên cây"
                 >
                   🌐 Quét DNS
+                </button>
+                <button 
+                  onClick={handleGeneratePrompt} 
+                  disabled={isBuilding}
+                  style={{ width: 'auto', backgroundColor: isBuilding ? 'var(--text-secondary)' : '#8b5cf6', color: '#fff' }}
+                  title="Tạo Prompt AI dựa trên Cây hiện tại để phân tích bảo mật"
+                >
+                  🤖 Prompt AI
                 </button>
               </>
             )}
