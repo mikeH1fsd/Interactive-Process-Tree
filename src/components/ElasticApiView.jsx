@@ -92,7 +92,7 @@ function ElasticApiView() {
       if (!urlObj.port && urlObj.hostname !== 'localhost') {
         urlObj.port = '9200';
       }
-      return urlObj.toString().replace(/\/$/, '');
+      return urlObj.origin;
     } catch (e) {
       return finalUrl;
     }
