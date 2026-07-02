@@ -37,7 +37,7 @@ function App() {
       </header>
 
       <div style={{ display: platform === 'elastic' ? 'block' : 'none' }}>
-        <ElasticView />
+        <ElasticApiView isManualMode={true} />
       </div>
       <div style={{ display: platform === 'splunk' ? 'block' : 'none' }}>
         <SplunkView />

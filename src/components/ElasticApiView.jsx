@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 
-function ElasticApiView() {
+function ElasticApiView({ isManualMode = false }) {
   const [apiUrl, setApiUrl] = useState('http://10.48.144.79:9200');
   const [username, setUsername] = useState('elastic');
   const [password, setPassword] = useState('elastic');
@@ -17,6 +17,35 @@ function ElasticApiView() {
   // Search
   const [searchProcessName, setSearchProcessName] = useState('');
   const [searchProcessPid, setSearchProcessPid] = useState('');
+
+  // Manual Mode State
+  const [manualRequest, setManualRequest] = useState(null);
+  const [manualResponseInput, setManualResponseInput] = useState('');
+  
+  // Custom fetch wrapper
+  const executeQuery = async (endpoint, options) => {
+    if (isManualMode) {
+      if (options.method !== 'POST' || !options.body) {
+        return { ok: true, json: () => Promise.resolve([]) };
+      }
+      return new Promise((resolve, reject) => {
+        setManualRequest({
+          endpoint,
+          query: options.body,
+          onResolve: (jsonResponse) => {
+            setManualRequest(null);
+            resolve({ ok: true, json: () => Promise.resolve(jsonResponse) });
+          },
+          onReject: (err) => {
+            setManualRequest(null);
+            reject(err);
+          }
+        });
+      });
+    } else {
+      return await fetch(endpoint, options);
+    }
+  };
 
   // Event 3 Config
   const [evt3CodeField, setEvt3CodeField] = useState('event.code');
@@ -100,7 +129,10 @@ function ElasticApiView() {
 
   const [availableIndices, setAvailableIndices] = useState([]);
   const [indexFields, setIndexFields] = useState([
-    '@timestamp', 'event.code', 'process.name', 'process.pid', 'process.parent.name', 'process.parent.pid'
+    '@timestamp', 'event.code', 'process.name', 'process.pid', 'process.parent.name', 'process.parent.pid',
+    'process.command_line', 'user.name', 'destination.ip', 'destination.port', 'file.path', 'dns.question.name',
+    'registry.path', 'winlog.event_id', 'winlog.process.pid', 'powershell.file.script_block_text',
+    'winlog.logon.id', 'host.name', 'source.ip', 'winlog.event_data.LogonType'
   ]);
   const [extraField, setExtraField] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -137,7 +169,7 @@ function ElasticApiView() {
     if (!pattern) return;
     try {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-      const response = await fetch(`/elastic_api/${pattern}/_mapping`, {
+      const response = await executeQuery(`/elastic_api/${pattern}/_mapping`, {
         headers: { 
           'Authorization': authHeader,
           'x-target-url': getFormatUrl(apiUrl)
@@ -216,7 +248,7 @@ function ElasticApiView() {
        setConnectionStatus({ type: 'loading', message: `⏳ Đang thử kết nối cổng ${port || (testUrl.startsWith('https') ? '443' : '80')}...` });
 
        try {
-         const response = await fetch(`/elastic_api/_cat/indices?format=json&h=index`, {
+         const response = await executeQuery(`/elastic_api/_cat/indices?format=json&h=index`, {
            headers: { 
              'Authorization': authHeader,
              'x-target-url': testUrl
@@ -378,7 +410,7 @@ function ElasticApiView() {
 
     try {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-      const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+      const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -482,7 +514,7 @@ function ElasticApiView() {
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
-        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+        const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -595,7 +627,7 @@ function ElasticApiView() {
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
-        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+        const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -707,7 +739,7 @@ function ElasticApiView() {
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
-        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+        const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -819,7 +851,7 @@ function ElasticApiView() {
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
-        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+        const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -946,7 +978,7 @@ function ElasticApiView() {
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
             body: JSON.stringify({
@@ -1086,7 +1118,7 @@ function ElasticApiView() {
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
             body: JSON.stringify({
@@ -1225,7 +1257,7 @@ function ElasticApiView() {
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
             body: JSON.stringify({
@@ -1363,7 +1395,7 @@ function ElasticApiView() {
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
             body: JSON.stringify({
@@ -1486,7 +1518,7 @@ function ElasticApiView() {
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
-        const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+        const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
           body: JSON.stringify({
@@ -1612,7 +1644,7 @@ function ElasticApiView() {
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-          const response = await fetch(`/elastic_api/${indexPattern}/_search`, {
+          const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
             body: JSON.stringify({
@@ -1821,7 +1853,7 @@ function ElasticApiView() {
 
       // 1. Fetch Event 4688 to get Logon ID
       let q1 = `(${logonEventCodeField}: "4688") AND (${logonProcessNameField}: "${searchProcessName}") AND (${logonProcessPidField}: "${searchProcessPid}")`;
-      const res1 = await fetch(`/elastic_api/${indexPattern}/_search`, {
+      const res1 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
         body: JSON.stringify({
@@ -1850,7 +1882,7 @@ function ElasticApiView() {
 
       // 2. Fetch Event 4624 using Logon ID
       let q2 = `(${logonEventCodeField}: "4624") AND (${logonIdField}: "${logonId}")`;
-      const res2 = await fetch(`/elastic_api/${indexPattern}/_search`, {
+      const res2 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
         body: JSON.stringify({
@@ -2167,6 +2199,7 @@ function ElasticApiView() {
     <div className="layout">
       {/* Sidebar Configurations */}
       <div className="sidebar">
+        {!isManualMode && (
         <div className="card">
           <h2>Kết Nối API</h2>
           <div className="input-group">
@@ -2453,6 +2486,59 @@ function ElasticApiView() {
           </div>
         </div>
       </div>
+
+      {/* Manual Input Modal */}
+      {manualRequest && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
+          <div style={{ backgroundColor: 'var(--panel-bg)', padding: '20px', borderRadius: '10px', width: '80%', maxWidth: '900px', border: '1px solid var(--panel-border)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <h2 style={{ color: '#10b981', marginTop: 0 }}>Cần dữ liệu từ Kibana (Chế độ thủ công)</h2>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              1. Hãy copy đoạn JSON Query bên dưới.<br/>
+              2. Mở Kibana Dev Tools (hoặc Console) của bạn.<br/>
+              3. Chạy lệnh: <code style={{color: '#f472b6'}}>GET {manualRequest.endpoint.replace('/elastic_api', '')}</code> với thân (body) là đoạn JSON đó.<br/>
+              4. Copy toàn bộ kết quả JSON trả về và dán vào ô bên dưới.
+            </p>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+              <strong>Kibana Request Body (JSON):</strong>
+              <button onClick={() => navigator.clipboard.writeText(manualRequest.query)} style={{ backgroundColor: 'var(--panel-border)', padding: '4px 8px' }}>📋 Copy Query</button>
+            </div>
+            <textarea 
+              readOnly 
+              value={manualRequest.query} 
+              style={{ width: '100%', height: '150px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#38bdf8', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)', flexShrink: 0 }}
+            />
+            
+            <strong style={{ marginTop: '15px' }}>Dán Kết Quả Trả Về (Response JSON) vào đây:</strong>
+            <textarea 
+              value={manualResponseInput}
+              onChange={(e) => setManualResponseInput(e.target.value)}
+              placeholder='{ "took": 15, "hits": { "total": ... } }'
+              style={{ width: '100%', flexGrow: 1, minHeight: '150px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)' }}
+            />
+            
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setManualRequest(null); manualRequest.onReject(new Error('Người dùng đã hủy')); }} style={{ backgroundColor: 'transparent', border: '1px solid var(--panel-border)' }}>
+                ❌ Hủy bỏ
+              </button>
+              <button 
+                onClick={() => {
+                  try {
+                    const parsed = JSON.parse(manualResponseInput);
+                    manualRequest.onResolve(parsed);
+                    setManualResponseInput('');
+                  } catch (e) {
+                    alert('Lỗi JSON: Vui lòng kiểm tra lại dữ liệu vừa dán!');
+                  }
+                }} 
+                style={{ backgroundColor: '#10b981' }}
+              >
+                ✅ Xử lý kết quả
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
