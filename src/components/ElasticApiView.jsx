@@ -2562,7 +2562,7 @@ function ElasticApiView({ isManualMode = false }) {
           </div>
         </div>
         );
-      })}
+      })()}
     </div>
   );
 }
