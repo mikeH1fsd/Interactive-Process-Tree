@@ -2489,33 +2489,55 @@ function ElasticApiView({ isManualMode = false }) {
       </div>
 
       {/* Manual Input Modal */}
-      {manualRequest && (
+      {manualRequest && (() => {
+        let luceneQuery = "";
+        try {
+          const qObj = JSON.parse(manualRequest.query);
+          if (qObj.query && qObj.query.query_string && qObj.query.query_string.query) {
+            luceneQuery = qObj.query.query_string.query;
+          } else if (qObj.query && qObj.query.bool && qObj.query.bool.must) {
+             // Fallback for bool queries if any
+             luceneQuery = JSON.stringify(qObj.query.bool.must);
+          }
+        } catch(e) {}
+
+        return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
           <div style={{ backgroundColor: 'var(--panel-bg)', padding: '20px', borderRadius: '10px', width: '80%', maxWidth: '900px', border: '1px solid var(--panel-border)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <h2 style={{ color: '#10b981', marginTop: 0 }}>Cần dữ liệu từ Kibana (Chế độ thủ công)</h2>
             <p style={{ color: 'var(--text-secondary)' }}>
-              1. Hãy copy đoạn JSON Query bên dưới.<br/>
-              2. Mở Kibana Dev Tools (hoặc Console) của bạn.<br/>
-              3. Chạy lệnh: <code style={{color: '#f472b6'}}>GET {manualRequest.endpoint.replace('/elastic_api', '')}</code> với thân (body) là đoạn JSON đó.<br/>
-              4. Copy toàn bộ kết quả JSON trả về và dán vào ô bên dưới.
+              1. Copy đoạn <strong>KQL / Lucene Query</strong> bên dưới dán vào thanh tìm kiếm Kibana Discover.<br/>
+              2. Mở <strong>Inspect</strong> {'>'} <strong>Request</strong> {'>'} <strong>Response</strong> trong Kibana.<br/>
+              3. Copy toàn bộ kết quả JSON trả về và dán vào ô dưới cùng.
             </p>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-              <strong>Kibana Request Body (JSON):</strong>
-              <button onClick={() => navigator.clipboard.writeText(manualRequest.query)} style={{ backgroundColor: 'var(--panel-border)', padding: '4px 8px' }}>📋 Copy Query</button>
+              <strong style={{ color: '#f472b6' }}>KQL / Lucene Query (Dùng cho thanh Search Kibana):</strong>
+              <button onClick={() => navigator.clipboard.writeText(luceneQuery)} style={{ backgroundColor: 'var(--panel-border)', padding: '4px 8px' }}>📋 Copy Query</button>
+            </div>
+            <input 
+              readOnly 
+              value={luceneQuery} 
+              style={{ width: '100%', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f472b6', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)', fontSize: '14px' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
+              <strong style={{ color: 'var(--text-secondary)' }}>Hoặc dùng Dev Tools Body (JSON):</strong>
+              <button onClick={() => navigator.clipboard.writeText(manualRequest.query)} style={{ backgroundColor: 'var(--panel-border)', padding: '4px 8px', fontSize: '12px' }}>📋 Copy JSON</button>
             </div>
             <textarea 
               readOnly 
               value={manualRequest.query} 
-              style={{ width: '100%', height: '150px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#38bdf8', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)', flexShrink: 0 }}
+              style={{ width: '100%', height: '80px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.2)', color: 'var(--text-secondary)', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)', flexShrink: 0, fontSize: '12px' }}
             />
             
             <strong style={{ marginTop: '15px' }}>Dán Kết Quả Trả Về (Response JSON) vào đây:</strong>
+            <p style={{ color: '#fbbf24', fontSize: '12px', margin: '5px 0' }}>⚠️ <strong>Lưu ý:</strong> Bắt buộc phải dán JSON nguyên gốc từ Kibana (gồm <code>hits.hits...</code>), KHÔNG dán dạng bảng (CSV/Tab) vì tool cần cấu trúc chuẩn để build cây.</p>
             <textarea 
               value={manualResponseInput}
               onChange={(e) => setManualResponseInput(e.target.value)}
               placeholder='{ "took": 15, "hits": { "total": ... } }'
-              style={{ width: '100%', flexGrow: 1, minHeight: '150px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)' }}
+              style={{ width: '100%', flexGrow: 1, minHeight: '120px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)' }}
             />
             
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
@@ -2539,7 +2561,8 @@ function ElasticApiView({ isManualMode = false }) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })}
     </div>
   );
 }
