@@ -2252,6 +2252,7 @@ function ElasticApiView({ isManualMode = false }) {
             )}
           </div>
         </div>
+        )}
 
         <div className="card">
           <h2 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
