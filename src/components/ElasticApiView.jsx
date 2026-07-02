@@ -2496,10 +2496,89 @@ function ElasticApiView({ isManualMode = false }) {
           if (qObj.query && qObj.query.query_string && qObj.query.query_string.query) {
             luceneQuery = qObj.query.query_string.query;
           } else if (qObj.query && qObj.query.bool && qObj.query.bool.must) {
-             // Fallback for bool queries if any
              luceneQuery = JSON.stringify(qObj.query.bool.must);
           }
         } catch(e) {}
+
+        const parseTabularToHits = (text, query) => {
+          let hits = [];
+          const setNested = (obj, path, value) => {
+            if (!path) return;
+            const parts = path.split('.');
+            let current = obj;
+            for (let i = 0; i < parts.length - 1; i++) {
+              if (!current[parts[i]]) current[parts[i]] = {};
+              current = current[parts[i]];
+            }
+            current[parts[parts.length - 1]] = value;
+          };
+      
+          const lines = text.trim().split('\n');
+          lines.forEach(line => {
+            if (!line.trim()) return;
+            let parts = line.split('\t');
+            if (parts.length < 3) parts = line.split(/\s{2,}/);
+            if (parts.length < 3) parts = line.trim().split(/\s+/);
+            
+            let source = {};
+            
+            if (query.includes(`${eventCodeField}: "3"`) || query.includes('event.code: "3"')) {
+              if (parts.length >= 4) {
+                setNested(source, eventCodeField, '3');
+                setNested(source, processNameField, parts[0].trim());
+                setNested(source, processPidField, parts[1].replace(/,/g, '').trim());
+                setNested(source, networkSourceIpField, parts[2].trim());
+                setNested(source, networkDestIpField, parts[3].trim());
+                if (parts.length > 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(4).join(' '));
+              }
+            } else if (query.includes(`${eventCodeField}: "22"`) || query.includes('event.code: "22"')) {
+              if (parts.length >= 4) {
+                setNested(source, eventCodeField, '22');
+                setNested(source, processNameField, parts[0].trim());
+                setNested(source, processPidField, parts[1].replace(/,/g, '').trim());
+                setNested(source, dnsQuestionField, parts[2].trim());
+                setNested(source, dnsAnswerField || 'dns.resolved_ip', parts[3].trim()); 
+                if (parts.length > 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(4).join(' '));
+              }
+            } else if (query.includes(`${eventCodeField}: "11"`) || query.includes('event.code: "11"')) {
+              if (parts.length >= 4) {
+                source['@timestamp'] = parts[0].trim();
+                setNested(source, eventCodeField, '11');
+                setNested(source, processNameField, parts[1].trim());
+                setNested(source, processPidField, parts[2].replace(/,/g, '').trim());
+                setNested(source, fileTargetField, parts[3].trim());
+                if (parts.length > 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(4).join(' '));
+              }
+            } else if (query.includes(`${eventCodeField}: "13"`) || query.includes('event.code: "13"')) {
+              if (parts.length >= 5) {
+                source['@timestamp'] = parts[0].trim();
+                setNested(source, eventCodeField, '13');
+                setNested(source, processNameField, parts[1].trim());
+                setNested(source, processPidField, parts[2].replace(/,/g, '').trim());
+                setNested(source, registryPathField, parts[3].trim());
+                setNested(source, registryDataField || 'registry.data.strings', parts[4].trim());
+                if (parts.length > 5 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(5).join(' '));
+              }
+            } else {
+               // Process Tree (Event 1 / 4688)
+               if (parts.length >= 5) {
+                  source['@timestamp'] = parts[0].trim();
+                  setNested(source, eventCodeField, '1');
+                  setNested(source, parentNameField, parts[1].trim());
+                  setNested(source, parentPidField, parts[2].replace(/,/g, '').trim());
+                  setNested(source, processNameField, parts[3].trim());
+                  setNested(source, processPidField, parts[4].replace(/,/g, '').trim());
+                  if (parts.length > 5 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(5).join(' '));
+               }
+            }
+            
+            if (Object.keys(source).length > 0) {
+              hits.push({ _source: source });
+            }
+          });
+          
+          return { hits: { hits: hits } };
+        };
 
         return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
@@ -2507,8 +2586,8 @@ function ElasticApiView({ isManualMode = false }) {
             <h2 style={{ color: '#10b981', marginTop: 0 }}>Cần dữ liệu từ Kibana (Chế độ thủ công)</h2>
             <p style={{ color: 'var(--text-secondary)' }}>
               1. Copy đoạn <strong>KQL / Lucene Query</strong> bên dưới dán vào thanh tìm kiếm Kibana Discover.<br/>
-              2. Mở <strong>Inspect</strong> {'>'} <strong>Request</strong> {'>'} <strong>Response</strong> trong Kibana.<br/>
-              3. Copy toàn bộ kết quả JSON trả về và dán vào ô dưới cùng.
+              2. Xem kết quả dạng bảng trên Kibana và <strong>Copy các cột tương ứng (hoặc JSON)</strong>.<br/>
+              3. Dán dữ liệu vừa copy vào ô dưới cùng và bấm Xử lý.
             </p>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
@@ -2531,12 +2610,18 @@ function ElasticApiView({ isManualMode = false }) {
               style={{ width: '100%', height: '80px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.2)', color: 'var(--text-secondary)', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)', flexShrink: 0, fontSize: '12px' }}
             />
             
-            <strong style={{ marginTop: '15px' }}>Dán Kết Quả Trả Về (Response JSON) vào đây:</strong>
-            <p style={{ color: '#fbbf24', fontSize: '12px', margin: '5px 0' }}>⚠️ <strong>Lưu ý:</strong> Bắt buộc phải dán JSON nguyên gốc từ Kibana (gồm <code>hits.hits...</code>), KHÔNG dán dạng bảng (CSV/Tab) vì tool cần cấu trúc chuẩn để build cây.</p>
+            <strong style={{ marginTop: '15px' }}>Dán Kết Quả Trả Về (Dạng Bảng / CSV / JSON) vào đây:</strong>
+            <p style={{ color: '#fbbf24', fontSize: '12px', margin: '5px 0' }}>
+              💡 <strong>Hỗ trợ dán dạng bảng (như tool cũ):</strong><br/>
+              - Build Cây: <code>Thời Gian | Parent Name | Parent PID | Process Name | Process PID | Extra (nếu có)</code><br/>
+              - Quét Network: <code>Process Name | PID | Source IP | Dest IP | Extra</code><br/>
+              - Quét File: <code>Thời Gian | Process Name | PID | File Path | Extra</code><br/>
+              - Quét DNS: <code>Process Name | PID | DNS Question | DNS Answer | Extra</code>
+            </p>
             <textarea 
               value={manualResponseInput}
               onChange={(e) => setManualResponseInput(e.target.value)}
-              placeholder='{ "took": 15, "hits": { "total": ... } }'
+              placeholder="Dán dữ liệu dạng cột (Tab/Space) hoặc Response JSON vào đây..."
               style={{ width: '100%', flexGrow: 1, minHeight: '120px', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)' }}
             />
             
@@ -2547,11 +2632,17 @@ function ElasticApiView({ isManualMode = false }) {
               <button 
                 onClick={() => {
                   try {
-                    const parsed = JSON.parse(manualResponseInput);
+                    let parsed;
+                    const inputStr = manualResponseInput.trim();
+                    if (inputStr.startsWith('{')) {
+                       parsed = JSON.parse(inputStr);
+                    } else {
+                       parsed = parseTabularToHits(inputStr, manualRequest.query);
+                    }
                     manualRequest.onResolve(parsed);
                     setManualResponseInput('');
                   } catch (e) {
-                    alert('Lỗi JSON: Vui lòng kiểm tra lại dữ liệu vừa dán!');
+                    alert('Lỗi xử lý dữ liệu: Vui lòng kiểm tra lại cấu trúc dữ liệu vừa dán!');
                   }
                 }} 
                 style={{ backgroundColor: '#10b981' }}
