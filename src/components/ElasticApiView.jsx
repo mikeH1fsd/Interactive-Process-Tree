@@ -2569,6 +2569,25 @@ function ElasticApiView({ isManualMode = false }) {
                   });
                 }
               }
+            } else if (query.includes(`${evt4104CodeField}: "${evt4104CodeValue}"`) || query.includes(`winlog.event_id: "${evt4104CodeValue}"`)) {
+              // PowerShell (Event 4104) typically only needs PID and Script Block Text
+              // Format: [Thời Gian] | [Process Name] | PID | Script Block Text
+              if (parts.length >= 1 + offset) {
+                if (offset === 1) source['@timestamp'] = parts[0].trim();
+                setNested(source, evt4104CodeField, evt4104CodeValue);
+                // PID is always at offset + 1 if Process Name is present, otherwise it might be at offset
+                // Let's check if parts[offset] is PID (numeric)
+                let pidIdx = isPid(parts[offset]) ? offset : (offset + 1);
+                setNested(source, evt4104ProcessPidField, (parts[pidIdx] || '').replace(/,/g, '').trim());
+                
+                const extraCols = parts.slice(pidIdx + 1);
+                if (evt4104ExtraField && extraCols.length > 0) {
+                  const fields = evt4104ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach((f, idx) => {
+                    if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
+                  });
+                }
+              }
             } else if (query.includes(`${eventCodeField}: "${evt13CodeValue}"`) || query.includes(`event.code: "${evt13CodeValue}"`)) {
               if (parts.length >= 2 + offset) {
                 if (offset === 1) source['@timestamp'] = parts[0].trim();
@@ -2594,7 +2613,14 @@ function ElasticApiView({ isManualMode = false }) {
                   setNested(source, parentPidField, parts[pOffset + 1].replace(/,/g, '').trim());
                   setNested(source, processNameField, parts[pOffset + 2].trim());
                   setNested(source, processPidField, parts[pOffset + 3].replace(/,/g, '').trim());
-                  if (parts.length > pOffset + 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(pOffset + 4).join(' '));
+                  
+                  const extraCols = parts.slice(pOffset + 4);
+                  if (extraField && extraCols.length > 0) {
+                    const fields = extraField.split(',').map(f => f.trim()).filter(f => f);
+                    fields.forEach((f, idx) => {
+                      if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
+                    });
+                  }
                }
             }
             
@@ -2607,29 +2633,40 @@ function ElasticApiView({ isManualMode = false }) {
         };
 
         return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
-          <div style={{ backgroundColor: 'var(--panel-bg)', padding: '20px', borderRadius: '10px', width: '80%', maxWidth: '900px', border: '1px solid var(--panel-border)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ color: '#10b981', marginTop: 0 }}>Cần dữ liệu từ Kibana (Chế độ thủ công)</h2>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              1. Copy đoạn <strong>KQL / Lucene Query</strong> bên dưới dán vào thanh tìm kiếm Kibana Discover.<br/>
-              2. Xem kết quả dạng bảng trên Kibana và <strong>Copy các cột tương ứng (hoặc JSON)</strong>.<br/>
-              3. Dán dữ liệu vừa copy vào ô dưới cùng và bấm Xử lý.
-            </p>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ backgroundColor: 'var(--panel-bg)', padding: '20px', borderRadius: '8px', width: '900px', maxWidth: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--panel-border)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ marginTop: 0, color: '#10b981' }}>Cần dữ liệu từ Kibana (Chế độ thủ công)</h3>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-              <strong style={{ color: '#f472b6' }}>KQL / Lucene Query (Dùng cho thanh Search Kibana):</strong>
-              <button onClick={() => navigator.clipboard.writeText(luceneQuery)} style={{ backgroundColor: 'var(--panel-border)', padding: '4px 8px' }}>📋 Copy Query</button>
-            </div>
-            <input 
-              readOnly 
-              value={luceneQuery} 
-              style={{ width: '100%', marginTop: '5px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f472b6', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid var(--panel-border)', fontSize: '14px' }}
-            />
+            <ol style={{ paddingLeft: '20px', margin: '10px 0', color: 'var(--text-secondary)' }}>
+              <li>Copy đoạn <strong>KQL / Lucene Query</strong> bên dưới dán vào thanh tìm kiếm Kibana Discover.</li>
+              <li>Xem kết quả dạng bảng trên Kibana và <strong>Copy các cột tương ứng (hoặc JSON)</strong>.</li>
+              <li>Dán dữ liệu vừa copy vào ô dưới cùng và bấm Xử lý.</li>
+            </ol>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
-              <strong style={{ color: 'var(--text-secondary)' }}>Hoặc dùng Dev Tools Body (JSON):</strong>
-              <button onClick={() => navigator.clipboard.writeText(manualRequest.query)} style={{ backgroundColor: 'var(--panel-border)', padding: '4px 8px', fontSize: '12px' }}>📋 Copy JSON</button>
+            <strong style={{ color: '#ec4899', marginTop: '10px' }}>KQL / Lucene Query (Dùng cho thanh Search Kibana):</strong>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(luceneQuery);
+                alert('Đã copy câu Query!');
+              }}
+              style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', float: 'right', fontSize: '12px' }}
+            >
+              📋 Copy Query
+            </button>
+            <div style={{ width: '100%', minHeight: '40px', marginTop: '5px', backgroundColor: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', fontFamily: 'monospace', padding: '10px', borderRadius: '4px', border: '1px solid rgba(236, 72, 153, 0.3)', wordBreak: 'break-all', fontSize: '12px' }}>
+              {luceneQuery}
             </div>
+
+            <strong style={{ marginTop: '15px' }}>Hoặc dùng Dev Tools Body (JSON):</strong>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(manualRequest.query);
+                alert('Đã copy JSON Body!');
+              }}
+              style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', float: 'right', fontSize: '12px' }}
+            >
+              📋 Copy JSON
+            </button>
             <textarea 
               readOnly 
               value={manualRequest.query} 
