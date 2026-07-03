@@ -2521,54 +2521,71 @@ function ElasticApiView({ isManualMode = false }) {
             if (parts.length < 3) parts = line.trim().split(/\s+/);
             
             let source = {};
-            
-            // Auto-detect if first column is timestamp by checking if the next or next-next column is a PID
-            // A PID is usually numeric, possibly with commas (e.g. "3,704" or "1234")
             const isPid = (str) => /^\d[\d,]*$/.test((str || '').trim());
             let offset = isPid(parts[2]) ? 1 : 0;
             
-            if (query.includes(`${eventCodeField}: "3"`) || query.includes('event.code: "3"')) {
-              if (parts.length >= 3 + offset) {
+            if (query.includes(`${eventCodeField}: "${evt3CodeValue}"`) || query.includes(`event.code: "${evt3CodeValue}"`)) {
+              if (parts.length >= 2 + offset) {
                 if (offset === 1) source['@timestamp'] = parts[0].trim();
-                setNested(source, eventCodeField, '3');
+                setNested(source, eventCodeField, evt3CodeValue);
                 setNested(source, evt3ProcessNameField, parts[offset].trim());
-                setNested(source, evt3ProcessPidField, parts[offset + 1].replace(/,/g, '').trim());
-                setNested(source, 'source.ip', parts[offset + 2].trim());
-                setNested(source, 'destination.ip', parts[offset + 3] ? parts[offset + 3].trim() : '');
-                if (parts.length > offset + 4 && evt3ExtraField) setNested(source, evt3ExtraField.split(',')[0].trim(), parts.slice(offset + 4).join(' '));
+                setNested(source, evt3ProcessPidField, (parts[offset + 1] || '').replace(/,/g, '').trim());
+                
+                const extraCols = parts.slice(offset + 2);
+                if (evt3ExtraField && extraCols.length > 0) {
+                  const fields = evt3ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach((f, idx) => {
+                    if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
+                  });
+                }
               }
-            } else if (query.includes(`${eventCodeField}: "22"`) || query.includes('event.code: "22"')) {
-              if (parts.length >= 3 + offset) {
+            } else if (query.includes(`${eventCodeField}: "${evt22CodeValue}"`) || query.includes(`event.code: "${evt22CodeValue}"`)) {
+              if (parts.length >= 2 + offset) {
                 if (offset === 1) source['@timestamp'] = parts[0].trim();
-                setNested(source, eventCodeField, '22');
+                setNested(source, eventCodeField, evt22CodeValue);
                 setNested(source, evt22ProcessNameField, parts[offset].trim());
-                setNested(source, evt22ProcessPidField, parts[offset + 1].replace(/,/g, '').trim());
-                setNested(source, 'dns.question.name', parts[offset + 2].trim());
-                setNested(source, 'dns.resolved_ip', parts[offset + 3] ? parts[offset + 3].trim() : ''); 
-                if (parts.length > offset + 4 && evt22ExtraField) setNested(source, evt22ExtraField.split(',')[0].trim(), parts.slice(offset + 4).join(' '));
+                setNested(source, evt22ProcessPidField, (parts[offset + 1] || '').replace(/,/g, '').trim());
+                
+                const extraCols = parts.slice(offset + 2);
+                if (evt22ExtraField && extraCols.length > 0) {
+                  const fields = evt22ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach((f, idx) => {
+                    if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
+                  });
+                }
               }
-            } else if (query.includes(`${eventCodeField}: "11"`) || query.includes('event.code: "11"')) {
-              if (parts.length >= 3 + offset) {
+            } else if (query.includes(`${eventCodeField}: "${evt11CodeValue}"`) || query.includes(`event.code: "${evt11CodeValue}"`)) {
+              if (parts.length >= 2 + offset) {
                 if (offset === 1) source['@timestamp'] = parts[0].trim();
-                setNested(source, eventCodeField, '11');
+                setNested(source, eventCodeField, evt11CodeValue);
                 setNested(source, evt11ProcessNameField, parts[offset].trim());
-                setNested(source, evt11ProcessPidField, parts[offset + 1].replace(/,/g, '').trim());
-                setNested(source, 'file.path', parts[offset + 2].trim());
-                if (parts.length > offset + 3 && evt11ExtraField) setNested(source, evt11ExtraField.split(',')[0].trim(), parts.slice(offset + 3).join(' '));
+                setNested(source, evt11ProcessPidField, (parts[offset + 1] || '').replace(/,/g, '').trim());
+                
+                const extraCols = parts.slice(offset + 2);
+                if (evt11ExtraField && extraCols.length > 0) {
+                  const fields = evt11ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach((f, idx) => {
+                    if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
+                  });
+                }
               }
-            } else if (query.includes(`${eventCodeField}: "13"`) || query.includes('event.code: "13"')) {
-              if (parts.length >= 4 + offset) {
+            } else if (query.includes(`${eventCodeField}: "${evt13CodeValue}"`) || query.includes(`event.code: "${evt13CodeValue}"`)) {
+              if (parts.length >= 2 + offset) {
                 if (offset === 1) source['@timestamp'] = parts[0].trim();
-                setNested(source, eventCodeField, '13');
+                setNested(source, eventCodeField, evt13CodeValue);
                 setNested(source, evt13ProcessNameField, parts[offset].trim());
-                setNested(source, evt13ProcessPidField, parts[offset + 1].replace(/,/g, '').trim());
-                setNested(source, 'registry.path', parts[offset + 2].trim());
-                setNested(source, 'registry.data.strings', parts[offset + 3].trim());
-                if (parts.length > offset + 4 && evt13ExtraField) setNested(source, evt13ExtraField.split(',')[0].trim(), parts.slice(offset + 4).join(' '));
+                setNested(source, evt13ProcessPidField, (parts[offset + 1] || '').replace(/,/g, '').trim());
+                
+                const extraCols = parts.slice(offset + 2);
+                if (evt13ExtraField && extraCols.length > 0) {
+                  const fields = evt13ExtraField.split(',').map(f => f.trim()).filter(f => f);
+                  fields.forEach((f, idx) => {
+                    if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
+                  });
+                }
               }
             } else {
                // Process Tree (Event 1 / 4688)
-               // Format usually: time \t parentName \t parentPid \t processName \t processPid \t extraCols
                let pOffset = isPid(parts[2]) ? 1 : 0;
                if (parts.length >= 4 + pOffset) {
                   if (pOffset === 1) source['@timestamp'] = parts[0].trim();
