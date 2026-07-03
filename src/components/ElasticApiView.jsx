@@ -2522,53 +2522,63 @@ function ElasticApiView({ isManualMode = false }) {
             
             let source = {};
             
+            // Auto-detect if first column is timestamp by checking if the next or next-next column is a PID
+            // A PID is usually numeric, possibly with commas (e.g. "3,704" or "1234")
+            const isPid = (str) => /^\d[\d,]*$/.test((str || '').trim());
+            let offset = isPid(parts[2]) ? 1 : 0;
+            
             if (query.includes(`${eventCodeField}: "3"`) || query.includes('event.code: "3"')) {
-              if (parts.length >= 4) {
+              if (parts.length >= 3 + offset) {
+                if (offset === 1) source['@timestamp'] = parts[0].trim();
                 setNested(source, eventCodeField, '3');
-                setNested(source, processNameField, parts[0].trim());
-                setNested(source, processPidField, parts[1].replace(/,/g, '').trim());
-                setNested(source, networkSourceIpField, parts[2].trim());
-                setNested(source, networkDestIpField, parts[3].trim());
-                if (parts.length > 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(4).join(' '));
+                setNested(source, processNameField, parts[offset].trim());
+                setNested(source, processPidField, parts[offset + 1].replace(/,/g, '').trim());
+                setNested(source, networkSourceIpField, parts[offset + 2].trim());
+                setNested(source, networkDestIpField, parts[offset + 3] ? parts[offset + 3].trim() : '');
+                if (parts.length > offset + 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(offset + 4).join(' '));
               }
             } else if (query.includes(`${eventCodeField}: "22"`) || query.includes('event.code: "22"')) {
-              if (parts.length >= 4) {
+              if (parts.length >= 3 + offset) {
+                if (offset === 1) source['@timestamp'] = parts[0].trim();
                 setNested(source, eventCodeField, '22');
-                setNested(source, processNameField, parts[0].trim());
-                setNested(source, processPidField, parts[1].replace(/,/g, '').trim());
-                setNested(source, dnsQuestionField, parts[2].trim());
-                setNested(source, dnsAnswerField || 'dns.resolved_ip', parts[3].trim()); 
-                if (parts.length > 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(4).join(' '));
+                setNested(source, processNameField, parts[offset].trim());
+                setNested(source, processPidField, parts[offset + 1].replace(/,/g, '').trim());
+                setNested(source, dnsQuestionField, parts[offset + 2].trim());
+                setNested(source, dnsAnswerField || 'dns.resolved_ip', parts[offset + 3] ? parts[offset + 3].trim() : ''); 
+                if (parts.length > offset + 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(offset + 4).join(' '));
               }
             } else if (query.includes(`${eventCodeField}: "11"`) || query.includes('event.code: "11"')) {
-              if (parts.length >= 4) {
-                source['@timestamp'] = parts[0].trim();
+              if (parts.length >= 3 + offset) {
+                if (offset === 1) source['@timestamp'] = parts[0].trim();
                 setNested(source, eventCodeField, '11');
-                setNested(source, processNameField, parts[1].trim());
-                setNested(source, processPidField, parts[2].replace(/,/g, '').trim());
-                setNested(source, fileTargetField, parts[3].trim());
-                if (parts.length > 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(4).join(' '));
+                setNested(source, processNameField, parts[offset].trim());
+                setNested(source, processPidField, parts[offset + 1].replace(/,/g, '').trim());
+                setNested(source, fileTargetField, parts[offset + 2].trim());
+                if (parts.length > offset + 3 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(offset + 3).join(' '));
               }
             } else if (query.includes(`${eventCodeField}: "13"`) || query.includes('event.code: "13"')) {
-              if (parts.length >= 5) {
-                source['@timestamp'] = parts[0].trim();
+              if (parts.length >= 4 + offset) {
+                if (offset === 1) source['@timestamp'] = parts[0].trim();
                 setNested(source, eventCodeField, '13');
-                setNested(source, processNameField, parts[1].trim());
-                setNested(source, processPidField, parts[2].replace(/,/g, '').trim());
-                setNested(source, registryPathField, parts[3].trim());
-                setNested(source, registryDataField || 'registry.data.strings', parts[4].trim());
-                if (parts.length > 5 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(5).join(' '));
+                setNested(source, processNameField, parts[offset].trim());
+                setNested(source, processPidField, parts[offset + 1].replace(/,/g, '').trim());
+                setNested(source, registryPathField, parts[offset + 2].trim());
+                setNested(source, registryDataField || 'registry.data.strings', parts[offset + 3].trim());
+                if (parts.length > offset + 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(offset + 4).join(' '));
               }
             } else {
                // Process Tree (Event 1 / 4688)
-               if (parts.length >= 5) {
-                  source['@timestamp'] = parts[0].trim();
+               // Format usually: time \t parentName \t parentPid \t processName \t processPid \t extraCols
+               // For process tree, time is almost always present, so parentPid is at index 2
+               let pOffset = isPid(parts[2]) ? 1 : 0;
+               if (parts.length >= 4 + pOffset) {
+                  if (pOffset === 1) source['@timestamp'] = parts[0].trim();
                   setNested(source, eventCodeField, '1');
-                  setNested(source, parentNameField, parts[1].trim());
-                  setNested(source, parentPidField, parts[2].replace(/,/g, '').trim());
-                  setNested(source, processNameField, parts[3].trim());
-                  setNested(source, processPidField, parts[4].replace(/,/g, '').trim());
-                  if (parts.length > 5 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(5).join(' '));
+                  setNested(source, parentNameField, parts[pOffset].trim());
+                  setNested(source, parentPidField, parts[pOffset + 1].replace(/,/g, '').trim());
+                  setNested(source, processNameField, parts[pOffset + 2].trim());
+                  setNested(source, processPidField, parts[pOffset + 3].replace(/,/g, '').trim());
+                  if (parts.length > pOffset + 4 && extraField) setNested(source, extraField.split(',')[0].trim(), parts.slice(pOffset + 4).join(' '));
                }
             }
             
