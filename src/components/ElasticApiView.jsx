@@ -2516,6 +2516,7 @@ function ElasticApiView({ isManualMode = false }) {
           const lines = text.trim().split('\n');
           lines.forEach(line => {
             if (!line.trim()) return;
+            line = line.trim();
             let parts = line.split('\t');
             if (parts.length < 3) parts = line.split(/\s{2,}/);
             if (parts.length < 3) parts = line.trim().split(/\s+/);
