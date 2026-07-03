@@ -2663,7 +2663,7 @@ function ElasticApiView({ isManualMode = false }) {
                     if (inputStr.startsWith('{')) {
                        parsed = JSON.parse(inputStr);
                     } else {
-                       parsed = parseTabularToHits(inputStr, manualRequest.query);
+                       parsed = parseTabularToHits(inputStr, luceneQuery);
                     }
                     manualRequest.onResolve(parsed);
                     setManualResponseInput('');
