@@ -2404,7 +2404,7 @@ function SplunkApiView({ isManualMode = false }) {
             </button>
           </div>
 
-          <div className={`tree-container ${isFullScreen ? 'fullscreen' : ''}`}>
+          <div className={`tree-container ${(isFullScreen && !document.fullscreenElement) ? 'fullscreen' : ''}`}>
             {logonContext && (
               <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', borderRadius: '6px', padding: '15px', marginBottom: '15px' }}>
                 <h3 style={{ color: '#f59e0b', marginTop: 0, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
