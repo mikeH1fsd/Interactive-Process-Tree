@@ -2013,14 +2013,21 @@ function SplunkApiView({ isManualMode = false }) {
           </span>
           {node.extra && <span className="process-extra"> [{node.extra}]</span>}
           <div className="node-actions">
-            <button className="action-btn network" onClick={() => handleFetchNetwork(node)} title="Kéo Network (Event 3) của tiến trình này">📡</button>
-            <button className="action-btn file" onClick={() => handleFetchFile(node)} title="Kéo File (Event 11) của tiến trình này">📁</button>
-            <button className="action-btn" onClick={() => handleFetchDns(node)} title="Kéo DNS (Event 22) của tiến trình này" style={{backgroundColor: '#06b6d4'}}>🌐</button>
-            <button className="action-btn" onClick={() => handleFetchRegistry(node)} title="Kéo Registry (Event 13) của tiến trình này" style={{backgroundColor: '#fb923c'}}>🗄️</button>
-            <button className="action-btn" onClick={() => handleFetchPowerShell(node)} title="Giải mã PowerShell Script (Event 4104)" style={{backgroundColor: '#2563eb'}}>📜</button>
-            <button className="action-btn query" onClick={() => handleCopyChildQuery(node)} title="Copy KQL tìm Process Con của tiến trình này">🔍</button>
-            <button className="action-btn" onClick={() => handleDetachBranch(node)} title="Tách nhánh này ra một Tab mới" style={{backgroundColor: 'rgba(56, 189, 248, 0.2)'}}>✂️</button>
-            <button className="action-btn delete" onClick={() => handleDeleteBranch(nodeId)} title="Xoá nhánh này">🗑️</button>
+            {expandedNodeId !== nodeId ? (
+              <button className="action-btn expand" onClick={(e) => { e.stopPropagation(); setExpandedNodeId(nodeId); }} title="Hiện công cụ (Mở rộng)">⚙️</button>
+            ) : (
+              <>
+                <button className="action-btn collapse" onClick={(e) => { e.stopPropagation(); setExpandedNodeId(null); }} title="Thu gọn" style={{backgroundColor: 'rgba(255, 255, 255, 0.2)'}}>✖</button>
+                <button className="action-btn network" onClick={() => handleFetchNetwork(node)} title="Kéo Network (Event 3) của tiến trình này">📡</button>
+                <button className="action-btn file" onClick={() => handleFetchFile(node)} title="Kéo File (Event 11) của tiến trình này">📁</button>
+                <button className="action-btn" onClick={() => handleFetchDns(node)} title="Kéo DNS (Event 22) của tiến trình này" style={{backgroundColor: '#06b6d4'}}>🌐</button>
+                <button className="action-btn" onClick={() => handleFetchRegistry(node)} title="Kéo Registry (Event 13) của tiến trình này" style={{backgroundColor: '#fb923c'}}>🗄️</button>
+                <button className="action-btn" onClick={() => handleFetchPowerShell(node)} title="Giải mã PowerShell Script (Event 4104)" style={{backgroundColor: '#2563eb'}}>📜</button>
+                <button className="action-btn query" onClick={() => handleCopyChildQuery(node)} title="Copy KQL tìm Process Con của tiến trình này">🔍</button>
+                <button className="action-btn" onClick={() => handleDetachBranch(node)} title="Tách nhánh này ra một Tab mới" style={{backgroundColor: 'rgba(56, 189, 248, 0.2)'}}>✂️</button>
+                <button className="action-btn delete" onClick={() => handleDeleteBranch(nodeId)} title="Xoá nhánh này">🗑️</button>
+              </>
+            )}
           </div>
         </div>
       );
