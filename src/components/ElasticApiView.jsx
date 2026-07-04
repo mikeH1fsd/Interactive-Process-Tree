@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 
 function ElasticApiView({ isManualMode = false }) {
@@ -136,6 +136,7 @@ function ElasticApiView({ isManualMode = false }) {
   ]);
   const [extraField, setExtraField] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const treeContainerRef = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState(null);
 
   useEffect(() => {
@@ -148,7 +149,7 @@ function ElasticApiView({ isManualMode = false }) {
 
   const handleToggleFullScreen = () => {
     if (!document.fullscreenElement) {
-      const elem = document.getElementById('elastic-tree-container');
+      const elem = treeContainerRef.current;
       if (elem && elem.requestFullscreen) {
         elem.requestFullscreen().catch(err => {
           console.error("Error attempting to enable fullscreen:", err);
@@ -2458,7 +2459,7 @@ function ElasticApiView({ isManualMode = false }) {
             </button>
           </div>
 
-          <div id="elastic-tree-container" className={`tree-container ${(isFullScreen && !document.fullscreenElement) ? 'fullscreen' : ''}`}>
+          <div ref={treeContainerRef} className={`tree-container ${(isFullScreen && !document.fullscreenElement) ? 'fullscreen' : ''}`}>
             {logonContext && (
               <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', borderRadius: '6px', padding: '15px', marginBottom: '15px' }}>
                 <h3 style={{ color: '#f59e0b', marginTop: 0, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
