@@ -2030,7 +2030,17 @@ function ElasticApiView({ isManualMode = false }) {
     if (id === activeWorkspaceId) return;
     setWorkspaceData(prev => ({ ...prev, [activeWorkspaceId]: nodes }));
     setActiveWorkspaceId(id);
-    setNodes(workspaceData[id] || {});
+    const newNodes = workspaceData[id] || {};
+    setNodes(newNodes);
+    
+    const roots = Object.values(newNodes).filter(n => n.parents.length === 0);
+    if (roots.length > 0) {
+      setSearchProcessName(roots[0].name || '');
+      setSearchProcessPid(roots[0].pid || '');
+    } else {
+      setSearchProcessName('');
+      setSearchProcessPid('');
+    }
   };
 
   const handleCloseTab = (id, e) => {
@@ -2044,7 +2054,16 @@ function ElasticApiView({ isManualMode = false }) {
     if (activeWorkspaceId === id) {
        // Switch to root if closing active tab
        setActiveWorkspaceId('root');
-       setNodes(newWorkspaceData['root']);
+       const newNodes = newWorkspaceData['root'] || {};
+       setNodes(newNodes);
+       const roots = Object.values(newNodes).filter(n => n.parents.length === 0);
+       if (roots.length > 0) {
+         setSearchProcessName(roots[0].name || '');
+         setSearchProcessPid(roots[0].pid || '');
+       } else {
+         setSearchProcessName('');
+         setSearchProcessPid('');
+       }
     } else {
        setWorkspaceData(newWorkspaceData);
     }
@@ -2417,18 +2436,16 @@ function ElasticApiView({ isManualMode = false }) {
 
         <div className="card full-height">
           <h2>Tự Động Build Process Tree {activeWorkspaceId !== 'root' ? '(Chế độ Nhánh - Bỏ qua tìm Cha)' : ''}</h2>
-          {Object.keys(nodes).length === 0 && (
-            <div className="api-config-grid" style={{ marginBottom: '15px' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Tên Tiến trình (Process Name):</label>
-                <input type="text" value={searchProcessName} onChange={e => setSearchProcessName(e.target.value)} placeholder="Ví dụ: cmd.exe" />
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Mã Tiến trình (Process PID):</label>
-                <input type="text" value={searchProcessPid} onChange={e => setSearchProcessPid(e.target.value)} placeholder="Ví dụ: 1234" />
-              </div>
+          <div className="api-config-grid" style={{ marginBottom: '15px' }}>
+            <div className="input-group" style={{ marginBottom: 0 }}>
+              <label>Tên Tiến trình (Process Name):</label>
+              <input type="text" value={searchProcessName} onChange={e => setSearchProcessName(e.target.value)} placeholder="Ví dụ: cmd.exe" />
             </div>
-          )}
+            <div className="input-group" style={{ marginBottom: 0 }}>
+              <label>Mã Tiến trình (Process PID):</label>
+              <input type="text" value={searchProcessPid} onChange={e => setSearchProcessPid(e.target.value)} placeholder="Ví dụ: 1234" />
+            </div>
+          </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
             <button 
