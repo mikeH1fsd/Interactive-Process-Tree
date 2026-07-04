@@ -109,6 +109,7 @@ function ElasticApiView({ isManualMode = false }) {
   ]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('root');
   const [workspaceData, setWorkspaceData] = useState({ 'root': {} });
+  const workspaceInputsRef = useRef({});
 
   const getFormatUrl = (url) => {
     let finalUrl = (url || '').trim();
@@ -456,8 +457,14 @@ function ElasticApiView({ isManualMode = false }) {
       [newId]: {}
     }));
     setWorkspaces(prev => [...prev, { id: newId, name: `🌳 Cây Mới`, isDownwardOnly: false }]);
+    // Save current inputs before creating new tab
+    workspaceInputsRef.current[activeWorkspaceId] = { name: searchProcessName, pid: searchProcessPid };
+    workspaceInputsRef.current[newId] = { name: '', pid: '' };
+    
     setActiveWorkspaceId(newId);
     setNodes({});
+    setSearchProcessName('');
+    setSearchProcessPid('');
   };
 
   const handleDeleteBranch = (nodeId) => {
@@ -2029,18 +2036,18 @@ function ElasticApiView({ isManualMode = false }) {
   const handleTabSwitch = (id) => {
     if (id === activeWorkspaceId) return;
     setWorkspaceData(prev => ({ ...prev, [activeWorkspaceId]: nodes }));
+    
+    // Save current inputs
+    workspaceInputsRef.current[activeWorkspaceId] = { name: searchProcessName, pid: searchProcessPid };
+    
     setActiveWorkspaceId(id);
     const newNodes = workspaceData[id] || {};
     setNodes(newNodes);
     
-    const roots = Object.values(newNodes).filter(n => n.parents.length === 0);
-    if (roots.length > 0) {
-      setSearchProcessName(roots[0].name || '');
-      setSearchProcessPid(roots[0].pid || '');
-    } else {
-      setSearchProcessName('');
-      setSearchProcessPid('');
-    }
+    // Restore inputs
+    const saved = workspaceInputsRef.current[id] || { name: '', pid: '' };
+    setSearchProcessName(saved.name);
+    setSearchProcessPid(saved.pid);
   };
 
   const handleCloseTab = (id, e) => {
@@ -2056,14 +2063,10 @@ function ElasticApiView({ isManualMode = false }) {
        setActiveWorkspaceId('root');
        const newNodes = newWorkspaceData['root'] || {};
        setNodes(newNodes);
-       const roots = Object.values(newNodes).filter(n => n.parents.length === 0);
-       if (roots.length > 0) {
-         setSearchProcessName(roots[0].name || '');
-         setSearchProcessPid(roots[0].pid || '');
-       } else {
-         setSearchProcessName('');
-         setSearchProcessPid('');
-       }
+       
+       const saved = workspaceInputsRef.current['root'] || { name: '', pid: '' };
+       setSearchProcessName(saved.name);
+       setSearchProcessPid(saved.pid);
     } else {
        setWorkspaceData(newWorkspaceData);
     }
