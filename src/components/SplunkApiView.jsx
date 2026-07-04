@@ -150,7 +150,7 @@ function SplunkApiView({ isManualMode = false }) {
 
   const handleToggleFullScreen = () => {
     if (!document.fullscreenElement) {
-      const elem = document.getElementById('elastic-tree-container');
+      const elem = document.getElementById('elastic-main-workspace');
       if (elem && elem.requestFullscreen) {
         elem.requestFullscreen().catch(err => {
           console.error("Error attempting to enable fullscreen:", err);
@@ -2301,7 +2301,7 @@ function SplunkApiView({ isManualMode = false }) {
       </div>
 
       {/* Main Content Area */}
-      <div className="main-content" id="elastic-tree-container" style={isFullScreen ? { padding: '20px', backgroundColor: 'var(--panel-bg)', overflowY: 'auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 } : {}}>
+      <div className="main-content" id="elastic-main-workspace" style={(isFullScreen && !document.fullscreenElement) ? { padding: '20px', backgroundColor: 'var(--panel-bg)', overflowY: 'auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 } : {}}>
 
         <div style={{ display: 'flex', borderBottom: '1px solid var(--panel-border)', marginBottom: '15px', overflowX: 'auto' }}>
           {workspaces.map(ws => (
@@ -2404,7 +2404,7 @@ function SplunkApiView({ isManualMode = false }) {
             </button>
           </div>
 
-          <div id="elastic-tree-container" className={`tree-container ${isFullScreen ? 'fullscreen' : ''}`}>
+          <div className={`tree-container ${isFullScreen ? 'fullscreen' : ''}`}>
             {logonContext && (
               <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', borderRadius: '6px', padding: '15px', marginBottom: '15px' }}>
                 <h3 style={{ color: '#f59e0b', marginTop: 0, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
