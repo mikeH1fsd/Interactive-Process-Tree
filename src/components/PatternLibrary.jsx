@@ -12,6 +12,96 @@ const DEFAULT_PATTERNS = [
     name: 'Suspicious PowerShell Download',
     query: 'EventCode: "4104" AND ScriptBlockText: (*Net.WebClient* OR *DownloadString* OR *DownloadFile* OR *Invoke-WebRequest*)',
     platform: 'splunk'
+  },
+  {
+    id: 'pat_4',
+    name: 'Credential Harvesting via DCSync',
+    query: 'winlog.event_id: 4662 AND winlog.event_data.AccessMask: 0x100 AND winlog.event_data.Properties: (*1131f6aa-9c07-11d1-f79f-00c04fc2dcd2* OR *1131f6ad-9c07-11d1-f79f-00c04fc2dcd2* OR *9923a32a-3607-11d2-b9be-0000f87a36b2* OR *89e95b76-444d-4c62-991a-0facbeda640c*)',
+    platform: 'elastic'
+  },
+  {
+    id: 'pat_6',
+    name: 'Authentication via Pass-the-Hash',
+    query: 'winlog.event_id: 4624 AND winlog.event_data.LogonType: 3 AND winlog.event_data.LogonProcessName: *NtLmSsp* AND winlog.event_data.KeyLength: 0',
+    platform: 'elastic'
+  },
+  {
+    id: 'pat_8',
+    name: 'Active Directory Enumeration',
+    query: 'winlog.event_id: 3 AND source.ip: 10.0.0.0/8 AND destination.ip: 10.0.0.0/8 AND destination.port: (389 OR 636) AND NOT process.name: mmc.exe',
+    platform: 'elastic'
+  },
+  {
+    id: 'pat_10',
+    name: 'Living Off The Land Binaries',
+    query: 'host.name: WKSTN-* AND winlog.event_id: (1 OR 3) AND (process.name: (mshta.exe OR certutil.exe OR regsvr32.exe) OR process.parent.name: (mshta.exe OR certutil.exe OR regsvr32.exe))',
+    platform: 'elastic'
+  },
+  {
+    id: 'pat_12',
+    name: 'Scheduled Task Creation',
+    query: 'host.name: WKSTN-* AND (winlog.event_id: 4698 OR (*schtasks* OR *Register-ScheduledTask*))',
+    platform: 'elastic'
+  },
+  {
+    id: 'pat_14',
+    name: 'Disabling Security Software',
+    query: 'host.name: WKSTN-* AND (*DisableRealtimeMonitoring* OR *RemoveDefinitions*)',
+    platform: 'elastic'
+  },
+  {
+    id: 'pat_16',
+    name: 'Detecting Discovery With PowerShell Logs',
+    query: 'winlog.event_id: 4104 AND winlog.event_data.ScriptBlockText: (*Get-ADUser* OR *Get-ADGroupMember* OR *Get-ADComputer*)',
+    platform: 'elastic'
+  },
+  {
+    id: 'pat_3',
+    name: 'Hunting Mimikatz Execution',
+    query: 'EventCode="1" AND (CommandLine="*mimikatz*" OR CommandLine="*DumpCreds*" OR CommandLine="*privilege::debug*" OR CommandLine="*sekurlsa::*")',
+    platform: 'splunk'
+  },
+  {
+    id: 'pat_5',
+    name: 'Credential Harvesting via DCSync',
+    query: 'EventCode="4662" AND AccessMask="0x100" AND (Properties="*1131f6aa-9c07-11d1-f79f-00c04fc2dcd2*" OR Properties="*1131f6ad-9c07-11d1-f79f-00c04fc2dcd2*" OR Properties="*9923a32a-3607-11d2-b9be-0000f87a36b2*" OR Properties="*89e95b76-444d-4c62-991a-0facbeda640c*")',
+    platform: 'splunk'
+  },
+  {
+    id: 'pat_7',
+    name: 'Authentication via Pass-the-Hash',
+    query: 'EventCode="4624" AND LogonType="3" AND LogonProcessName="*NtLmSsp*" AND KeyLength="0"',
+    platform: 'splunk'
+  },
+  {
+    id: 'pat_9',
+    name: 'Active Directory Enumeration',
+    query: 'EventCode="3" AND SourceIp="10.0.0.0/8" AND DestinationIp="10.0.0.0/8" AND (DestinationPort="389" OR DestinationPort="636") AND NOT ProcessName="*mmc.exe*"',
+    platform: 'splunk'
+  },
+  {
+    id: 'pat_11',
+    name: 'Living Off The Land Binaries',
+    query: 'Computer="WKSTN-*" AND (EventCode="1" OR EventCode="3") AND (ProcessName="*mshta.exe" OR ProcessName="*certutil.exe" OR ProcessName="*regsvr32.exe" OR ParentProcessName="*mshta.exe" OR ParentProcessName="*certutil.exe" OR ParentProcessName="*regsvr32.exe")',
+    platform: 'splunk'
+  },
+  {
+    id: 'pat_13',
+    name: 'Scheduled Task Creation',
+    query: 'Computer="WKSTN-*" AND (EventCode="4698" OR ("*schtasks*" OR "*Register-ScheduledTask*"))',
+    platform: 'splunk'
+  },
+  {
+    id: 'pat_15',
+    name: 'Disabling Security Software',
+    query: 'Computer="WKSTN-*" AND ("*DisableRealtimeMonitoring*" OR "*RemoveDefinitions*")',
+    platform: 'splunk'
+  },
+  {
+    id: 'pat_17',
+    name: 'Detecting Discovery With PowerShell Logs',
+    query: 'index=win EventCode=4104\\n| search Message IN ("*Get-ADUser*", "*Get-ADGroupMember*", "*Get-ADComputer*")\\n| table _time, Message\\n| sort _time',
+    platform: 'splunk'
   }
 ];
 
@@ -32,7 +122,20 @@ export default function PatternLibrary({ isOpen, onClose, currentPlatform }) {
     const saved = localStorage.getItem('threat_hunt_patterns');
     if (saved) {
       try {
-        setPatterns(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Merge missing defaults
+        let merged = [...parsed];
+        let hasChanges = false;
+        DEFAULT_PATTERNS.forEach(defPat => {
+          if (!merged.find(p => p.id === defPat.id)) {
+            merged.push(defPat);
+            hasChanges = true;
+          }
+        });
+        setPatterns(merged);
+        if (hasChanges) {
+          localStorage.setItem('threat_hunt_patterns', JSON.stringify(merged));
+        }
       } catch (e) {
         setPatterns(DEFAULT_PATTERNS);
       }
