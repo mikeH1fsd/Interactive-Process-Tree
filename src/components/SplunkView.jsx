@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function SplunkView() {
   const [inputText, setInputText] = useState('');
   const [pasteMode, setPasteMode] = useState('process');
   const [nodes, setNodes] = useState({});
+  const [workspaces, setWorkspaces] = useState([{ id: 'root', name: '🌳 Cây Gốc', isDownwardOnly: false }]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('root');
+  const [workspaceData, setWorkspaceData] = useState({ 'root': {} });
+  const workspaceInputsRef = useRef({});
+
+  useEffect(() => {
+    setWorkspaceData(prev => ({ ...prev, [activeWorkspaceId]: nodes }));
+  }, [nodes, activeWorkspaceId]);
   const [queryOutput, setQueryOutput] = useState(null);
   const [queryForm, setQueryForm] = useState({ name: '', pid: '' });
   
@@ -26,6 +34,80 @@ export default function SplunkView() {
       setInputText('');
       setQueryOutput(null);
     }
+  };
+
+  const handleTabSwitch = (id) => {
+    if (id === activeWorkspaceId) return;
+    workspaceInputsRef.current[activeWorkspaceId] = inputText;
+    setActiveWorkspaceId(id);
+    const newNodes = workspaceData[id] || {};
+    setNodes(newNodes);
+    setInputText(workspaceInputsRef.current[id] || '');
+  };
+
+  const handleNewTab = () => {
+    const newId = 'ws_' + Date.now();
+    setWorkspaceData(prev => ({ ...prev, [newId]: {} }));
+    setWorkspaces(prev => [...prev, { id: newId, name: `🌳 Cây Mới`, isDownwardOnly: false }]);
+    
+    workspaceInputsRef.current[activeWorkspaceId] = inputText;
+    workspaceInputsRef.current[newId] = '';
+    
+    setActiveWorkspaceId(newId);
+    setNodes({});
+    setInputText('');
+  };
+
+  const handleCloseTab = (id, e) => {
+    e.stopPropagation();
+    if (id === 'root') return;
+    if (confirm("Bạn có chắc muốn đóng nhánh này? Toàn bộ dữ liệu nhánh sẽ bị xoá.")) {
+      const newWorkspaces = workspaces.filter(w => w.id !== id);
+      setWorkspaces(newWorkspaces);
+      
+      const newWorkspaceData = { ...workspaceData };
+      delete newWorkspaceData[id];
+      delete workspaceInputsRef.current[id];
+      
+      if (activeWorkspaceId === id) {
+         setActiveWorkspaceId('root');
+         const newNodes = newWorkspaceData['root'] || {};
+         setNodes(newNodes);
+         setInputText(workspaceInputsRef.current['root'] || '');
+      } else {
+         setWorkspaceData(newWorkspaceData);
+      }
+    }
+  };
+
+  const handleDetachBranch = (node) => {
+    const newId = 'ws_' + Date.now();
+    
+    const cloneBranch = (rootNodeId, sourceNodes) => {
+      const result = {};
+      const traverse = (nId) => {
+        if (result[nId]) return;
+        const n = sourceNodes[nId];
+        if (!n) return;
+        result[nId] = JSON.parse(JSON.stringify(n));
+        result[nId].parents = [];
+        n.children.forEach(c => traverse(c));
+      };
+      traverse(rootNodeId);
+      return result;
+    };
+
+    const newNodes = cloneBranch(node.id, nodes);
+    
+    setWorkspaceData(prev => ({ ...prev, [newId]: newNodes }));
+    setWorkspaces(prev => [...prev, { id: newId, name: `🌳 ${node.name}`, isDownwardOnly: true }]);
+    
+    workspaceInputsRef.current[activeWorkspaceId] = inputText;
+    workspaceInputsRef.current[newId] = '';
+    
+    setActiveWorkspaceId(newId);
+    setNodes(newNodes);
+    setInputText('');
   };
 
   const handleParse = () => {
@@ -124,6 +206,16 @@ export default function SplunkView() {
 
     setNodes(currentNodes);
     setInputText('');
+    
+    setWorkspaces(prev => prev.map(w => {
+       if (w.id === activeWorkspaceId && (w.name === '🌳 Cây Mới' || w.name === '🌳 Cây Gốc')) {
+           const roots = Object.values(currentNodes).filter(n => n.parents.length === 0);
+           if (roots.length > 0) {
+               return { ...w, name: `🌳 ${roots[0].name}` };
+           }
+       }
+       return w;
+    }));
   };
 
   const generateQueries = (pName, pid) => {
@@ -360,6 +452,7 @@ ${treeText}`;
           {node.extra && <span className="tree-extra">[{node.extra}]</span>}
           <div className="node-actions">
             <button className="action-btn" onClick={() => handleNodeClick(node)} title="Sinh Query cho Process này">🔍</button>
+            <button className="action-btn" onClick={() => handleDetachBranch(node)} title="Tách nhánh này ra một Tab mới" style={{backgroundColor: 'rgba(56, 189, 248, 0.2)'}}>✂️</button>
             <button className="action-btn delete" onClick={() => handleDeleteBranch(nodeId)} title="Xoá nhánh này">🗑️</button>
           </div>
         </div>
@@ -535,6 +628,27 @@ ${treeText}`;
       </aside>
 
       <section className="main-content">
+        <div className="workspace-tabs">
+          {workspaces.map(ws => (
+            <div 
+              key={ws.id} 
+              className={`workspace-tab ${activeWorkspaceId === ws.id ? 'active' : ''}`}
+              onClick={() => handleTabSwitch(ws.id)}
+            >
+              {ws.name}
+              {ws.id !== 'root' && (
+                <span 
+                  className="close-tab" 
+                  onClick={(e) => handleCloseTab(ws.id, e)}
+                  style={{ color: '#f87171', cursor: 'pointer', padding: '0 4px', fontSize: '16px', fontWeight: 'bold' }}
+                  title="Đóng nhánh"
+                >
+                  ×
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
         <div className="card full-height">
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
              <h2>3. Thêm Nhánh Mới vào Cây</h2>
@@ -547,7 +661,18 @@ ${treeText}`;
             onChange={(e) => setInputText(e.target.value)}
             rows={6}
           />
-          <button onClick={handleParse} className="build-btn">Ghép vào Process Tree</button>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <button onClick={handleParse} className="build-btn" style={{ flex: 1, margin: 0 }}>Ghép vào Process Tree</button>
+            {Object.keys(nodes).length > 0 && (
+              <button 
+                onClick={handleNewTab}
+                style={{ flex: 0.5, backgroundColor: '#10b981', margin: 0 }}
+                className="build-btn"
+              >
+                ➕ Mở Tab Mới
+              </button>
+            )}
+          </div>
           
           <div className="tree-container">
             <h3>Cây Tiến Trình Hiện Tại:</h3>

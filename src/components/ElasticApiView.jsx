@@ -43,7 +43,18 @@ function ElasticApiView({ isManualMode = false }) {
         });
       });
     } else {
-      return await fetch(endpoint, options);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const res = await fetch(endpoint, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        return res;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          throw new Error('Request Timeout (60s)');
+        }
+        throw err;
+      }
     }
   };
 
@@ -102,6 +113,11 @@ function ElasticApiView({ isManualMode = false }) {
   // Tree State
   const [nodes, setNodes] = useState({});
   const [isBuilding, setIsBuilding] = useState(false);
+
+  const escapeElastic = (str) => {
+    if (!str) return '';
+    return str.replace(/([+\-=\[\]{}()!^~*?:\\])/g, '\\$1');
+  };
 
   // Workspace Tabs State
   const [workspaces, setWorkspaces] = useState([
@@ -438,8 +454,24 @@ function ElasticApiView({ isManualMode = false }) {
       }
 
       const data = await response.json();
-      if (data.hits && data.hits.hits) {
+      if (Array.isArray(data)) {
+        processHits(data);
+        setWorkspaces(prev => prev.map(w => {
+           if (w.id === activeWorkspaceId && (w.name === '🌳 Cây Mới' || w.name === '🌳 Cây Gốc')) {
+               return { ...w, name: `🌳 ${searchProcessName || searchProcessPid}` };
+           }
+           return w;
+        }));
+      } else if (data.hits && data.hits.hits && data.hits.hits.length > 0) {
         processHits(data.hits.hits);
+        setWorkspaces(prev => prev.map(w => {
+           if (w.id === activeWorkspaceId && (w.name === '🌳 Cây Mới' || w.name === '🌳 Cây Gốc')) {
+               return { ...w, name: `🌳 ${searchProcessName || searchProcessPid}` };
+           }
+           return w;
+        }));
+      } else {
+        alert("Không tìm thấy kết quả nào cho Process này!");
       }
     } catch (error) {
       alert("Lỗi khi gọi API: " + error.message + "\nNếu bị lỗi Failed to fetch, có thể do cấu hình CORS trên Elastic.");
