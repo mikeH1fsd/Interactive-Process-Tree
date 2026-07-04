@@ -1806,8 +1806,11 @@ function SplunkApiView({ isManualMode = false }) {
   };
 
   const handleFetchLogonContext = async () => {
-    if (!searchProcessName || !searchProcessPid) {
-      alert("Vui lòng nhập Process Name và Process PID gốc trước khi tra cứu Logon Context.");
+    const nodeVals = Object.values(nodes);
+    const roots = nodeVals.filter(n => n.parents.length === 0);
+    const topRoot = roots.length > 0 ? roots[0] : null;
+    if (!topRoot) {
+      alert("Không tìm thấy tiến trình gốc nào trong cây hiện tại.");
       return;
     }
     
@@ -1819,7 +1822,7 @@ function SplunkApiView({ isManualMode = false }) {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
 
       // 1. Fetch Event 4688 to get Logon ID
-      let q1 = `(${logonEventCodeField}="4688") (${logonProcessNameField}="${escapeSplunk(searchProcessName)}") (${logonProcessPidField}="${searchProcessPid}")`;
+      let q1 = `(${logonEventCodeField}="4688") (${logonProcessNameField}="${escapeSplunk(topRoot.name)}") (${logonProcessPidField}="${topRoot.pid}")`;
       const res1 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
@@ -2360,16 +2363,18 @@ function SplunkApiView({ isManualMode = false }) {
 
         <div className="card full-height">
           <h2>Tự Động Build Process Tree {activeWorkspaceId !== 'root' ? '(Chế độ Nhánh - Bỏ qua tìm Cha)' : ''}</h2>
-          <div className="api-config-grid" style={{ marginBottom: '15px' }}>
-            <div className="input-group" style={{ marginBottom: 0 }}>
-              <label>Tên Tiến trình (Process Name):</label>
-              <input type="text" value={searchProcessName} onChange={e => setSearchProcessName(e.target.value)} placeholder="Ví dụ: cmd.exe" />
+          {Object.keys(nodes).length === 0 && (
+            <div className="api-config-grid" style={{ marginBottom: '15px' }}>
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label>Tên Tiến trình (Process Name):</label>
+                <input type="text" value={searchProcessName} onChange={e => setSearchProcessName(e.target.value)} placeholder="Ví dụ: cmd.exe" />
+              </div>
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label>Mã Tiến trình (Process PID):</label>
+                <input type="text" value={searchProcessPid} onChange={e => setSearchProcessPid(e.target.value)} placeholder="Ví dụ: 1234" />
+              </div>
             </div>
-            <div className="input-group" style={{ marginBottom: 0 }}>
-              <label>Mã Tiến trình (Process PID):</label>
-              <input type="text" value={searchProcessPid} onChange={e => setSearchProcessPid(e.target.value)} placeholder="Ví dụ: 1234" />
-            </div>
-          </div>
+          )}
 
           <div style={{ display: 'flex', gap: '10px' }}>
             <button 
