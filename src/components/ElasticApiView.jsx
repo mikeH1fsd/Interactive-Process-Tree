@@ -448,55 +448,16 @@ function ElasticApiView({ isManualMode = false }) {
   };
 
 
-  const handleAddRoot = async () => {
-    if (!searchProcessName && !searchProcessPid) {
-      alert("Vui lòng nhập Process Name hoặc PID để bắt đầu!");
-      return;
-    }
-    setIsBuilding(true);
-    let queryStr = '';
-    let conditions = [`${eventCodeField}: "1"`];
-    if (searchProcessName) conditions.push(`${processNameField}: "${escapeElastic(searchProcessName)}"`);
-    if (searchProcessPid) conditions.push(`${processPidField}: "${searchProcessPid}"`);
-    queryStr = conditions.join(" AND ");
-
-    try {
-      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
-      const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authHeader,
-          'x-target-url': getFormatUrl(apiUrl)
-        },
-        body: JSON.stringify({
-          query: {
-            query_string: {
-              query: queryStr
-            }
-          },
-          size: 500,
-          sort: [
-            { "@timestamp": { "order": "asc", "unmapped_type": "boolean" } }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      if (data.hits && data.hits.hits) {
-        processHits(data.hits.hits);
-      } else {
-        alert("Không tìm thấy tiến trình nào!");
-      }
-    } catch (error) {
-      alert("Lỗi khi gọi API: " + error.message);
-    } finally {
-      setIsBuilding(false);
-    }
+  const handleNewTab = () => {
+    const newId = 'ws_' + Date.now();
+    setWorkspaceData(prev => ({
+      ...prev,
+      [activeWorkspaceId]: nodes,
+      [newId]: {}
+    }));
+    setWorkspaces(prev => [...prev, { id: newId, name: `🌳 Cây Mới`, isDownwardOnly: false }]);
+    setActiveWorkspaceId(newId);
+    setNodes({});
   };
 
   const handleDeleteBranch = (nodeId) => {
@@ -2474,11 +2435,11 @@ function ElasticApiView({ isManualMode = false }) {
             </button>
             {Object.keys(nodes).length > 0 && (
               <button 
-                onClick={handleAddRoot} 
+                onClick={handleNewTab}
                 disabled={isBuilding}
                 style={{ flex: 0.5, backgroundColor: isBuilding ? 'var(--text-secondary)' : '#10b981' }}
               >
-                ➕ Thêm Cây Gốc
+                ➕ Mở Tab Mới
               </button>
             )}
             {Object.keys(nodes).length > 0 && (
