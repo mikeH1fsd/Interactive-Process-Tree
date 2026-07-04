@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 
 function SplunkApiView({ isManualMode = false }) {
+  const escapeSplunk = (str) => (str || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
   const [apiUrl, setApiUrl] = useState('http://10.48.144.79:9200');
   const [username, setUsername] = useState('elastic');
   const [password, setPassword] = useState('elastic');
@@ -370,7 +372,7 @@ function SplunkApiView({ isManualMode = false }) {
         
         const spamNames = Object.keys(childrenByName).filter(name => childrenByName[name] >= 10);
         if (spamNames.length > 0) {
-          const excludeList = spamNames.map(name => `${processNameField}="${name}"`).join(" OR ");
+          const excludeList = spamNames.map(name => `${processNameField}="${escapeSplunk(name)}"`).join(" OR ");
           return ` AND NOT (${excludeList})`;
         }
         return "";
@@ -382,9 +384,9 @@ function SplunkApiView({ isManualMode = false }) {
       const rootQueries = roots.map(root => {
         const excludeChildren = getExclusionStr(root);
         if (isDownwardOnly) {
-           return `(${parentNameField}="${root.name}" AND ${parentPidField}="${root.pid}"${excludeChildren})`;
+           return `(${parentNameField}="${escapeSplunk(root.name)}" AND ${parentPidField}="${root.pid}"${excludeChildren})`;
         } else {
-           return `((${processNameField}="${root.name}" AND ${processPidField}="${root.pid}") OR (${parentNameField}="${root.name}" AND ${parentPidField}="${root.pid}"${excludeChildren}))`;
+           return `((${processNameField}="${escapeSplunk(root.name)}" AND ${processPidField}="${root.pid}") OR (${parentNameField}="${escapeSplunk(root.name)}" AND ${parentPidField}="${root.pid}"${excludeChildren}))`;
         }
       });
       
@@ -478,7 +480,7 @@ function SplunkApiView({ isManualMode = false }) {
   };
 
   const handleCopyChildQuery = (node) => {
-    const query = `${parentNameField}="${node.name}" AND ${parentPidField}="${node.pid}"`;
+    const query = `${parentNameField}="${escapeSplunk(node.name)}" AND ${parentPidField}="${node.pid}"`;
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(query).then(() => {
         alert(`Đã copy query tìm Process Con vào Clipboard:\n${query}`);
@@ -500,7 +502,7 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt3CodeField}="${evt3CodeValue}") (${evt3ProcessNameField}="${node.name}") (${evt3ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt3CodeField}="${evt3CodeValue}") (${evt3ProcessNameField}="${escapeSplunk(node.name)}") (${evt3ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" ")})`;
         }
@@ -609,7 +611,7 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt11CodeField}="${evt11CodeValue}") (${evt11ProcessNameField}="${node.name}") (${evt11ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt11CodeField}="${evt11CodeValue}") (${evt11ProcessNameField}="${escapeSplunk(node.name)}") (${evt11ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" ")})`;
         }
@@ -717,7 +719,7 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt22CodeField}="${evt22CodeValue}") (${evt22ProcessNameField}="${node.name}") (${evt22ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt22CodeField}="${evt22CodeValue}") (${evt22ProcessNameField}="${escapeSplunk(node.name)}") (${evt22ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" ")})`;
         }
@@ -825,7 +827,7 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt13CodeField}="${evt13CodeValue}") (${evt13ProcessNameField}="${node.name}") (${evt13ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt13CodeField}="${evt13CodeValue}") (${evt13ProcessNameField}="${escapeSplunk(node.name)}") (${evt13ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" ")})`;
         }
@@ -1827,7 +1829,7 @@ function SplunkApiView({ isManualMode = false }) {
       }
 
       // 2. Fetch Event 4624 using Logon ID
-      let q2 = `(${logonEventCodeField}="4624") (${logonIdField}="${logonId}")`;
+      let q2 = `(${logonEventCodeField}="4624") (${logonIdField}="${escapeSplunk(logonId)}")`;
       const res2 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
