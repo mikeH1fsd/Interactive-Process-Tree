@@ -959,7 +959,7 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt3ProcessNameField}: "${n.name}" AND ${evt3ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => `(${evt3ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt3ProcessPidField}: "${n.pid}")`);
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1099,7 +1099,7 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt11ProcessNameField}: "${n.name}" AND ${evt11ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => `(${evt11ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt11ProcessPidField}: "${n.pid}")`);
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1238,7 +1238,7 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt22ProcessNameField}: "${n.name}" AND ${evt22ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => `(${evt22ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt22ProcessPidField}: "${n.pid}")`);
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1376,7 +1376,7 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt13ProcessNameField}: "${n.name}" AND ${evt13ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => `(${evt13ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt13ProcessPidField}: "${n.pid}")`);
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
