@@ -2637,7 +2637,7 @@ function SplunkApiView({ isManualMode = false }) {
                     if (inputStr.startsWith('{')) {
                        parsed = JSON.parse(inputStr);
                     } else {
-                       parsed = parseTabularToHits(inputStr, luceneQuery);
+                       parsed = parseTabularToHits(inputStr, splunkQuery);
                     }
                     manualRequest.onResolve(parsed);
                     setManualResponseInput('');
