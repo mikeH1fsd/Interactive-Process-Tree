@@ -353,7 +353,7 @@ function SplunkApiView({ isManualMode = false }) {
         return;
       }
       let conditions = [`${eventCodeField}="1"`];
-      if (searchProcessName) conditions.push(`${processNameField}="${searchProcessName}"`);
+      if (searchProcessName) conditions.push(`${processNameField}="${escapeSplunk(searchProcessName)}"`);
       if (searchProcessPid) conditions.push(`${processPidField}="${searchProcessPid}"`);
       queryStr = conditions.join(" ");
     } else {
@@ -394,7 +394,7 @@ function SplunkApiView({ isManualMode = false }) {
       
       const leafQueries = leaves.map(leaf => {
         const excludeChildren = getExclusionStr(leaf);
-        return `(${parentNameField}="${leaf.name}" AND ${parentPidField}="${leaf.pid}"${excludeChildren})`;
+        return `(${parentNameField}="${escapeSplunk(leaf.name)}" AND ${parentPidField}="${leaf.pid}"${excludeChildren})`;
       });
 
       let queries = [];
@@ -1806,7 +1806,7 @@ function SplunkApiView({ isManualMode = false }) {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
 
       // 1. Fetch Event 4688 to get Logon ID
-      let q1 = `(${logonEventCodeField}="4688") (${logonProcessNameField}="${searchProcessName}") (${logonProcessPidField}="${searchProcessPid}")`;
+      let q1 = `(${logonEventCodeField}="4688") (${logonProcessNameField}="${escapeSplunk(searchProcessName)}") (${logonProcessPidField}="${searchProcessPid}")`;
       const res1 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },

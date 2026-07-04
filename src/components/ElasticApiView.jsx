@@ -351,7 +351,7 @@ function ElasticApiView({ isManualMode = false }) {
         return;
       }
       let conditions = [`${eventCodeField}: "1"`];
-      if (searchProcessName) conditions.push(`${processNameField}: "${searchProcessName}"`);
+      if (searchProcessName) conditions.push(`${processNameField}: "${escapeElastic(searchProcessName)}"`);
       if (searchProcessPid) conditions.push(`${processPidField}: "${searchProcessPid}"`);
       queryStr = conditions.join(" AND ");
     } else {
@@ -392,7 +392,7 @@ function ElasticApiView({ isManualMode = false }) {
       
       const leafQueries = leaves.map(leaf => {
         const excludeChildren = getExclusionStr(leaf);
-        return `(${parentNameField}: "${leaf.name}" AND ${parentPidField}: "${leaf.pid}"${excludeChildren})`;
+        return `(${parentNameField}: "${escapeElastic(leaf.name)}" AND ${parentPidField}: "${leaf.pid}"${excludeChildren})`;
       });
 
       let queries = [];
@@ -512,7 +512,7 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt3CodeField}: "${evt3CodeValue}") AND (${evt3ProcessNameField}: "${node.name}") AND (${evt3ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt3CodeField}: "${evt3CodeValue}") AND (${evt3ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt3ProcessPidField}: "${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -625,7 +625,7 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt11CodeField}: "${evt11CodeValue}") AND (${evt11ProcessNameField}: "${node.name}") AND (${evt11ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt11CodeField}: "${evt11CodeValue}") AND (${evt11ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt11ProcessPidField}: "${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -737,7 +737,7 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt22CodeField}: "${evt22CodeValue}") AND (${evt22ProcessNameField}: "${node.name}") AND (${evt22ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt22CodeField}: "${evt22CodeValue}") AND (${evt22ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt22ProcessPidField}: "${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -849,7 +849,7 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt13CodeField}: "${evt13CodeValue}") AND (${evt13ProcessNameField}: "${node.name}") AND (${evt13ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt13CodeField}: "${evt13CodeValue}") AND (${evt13ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt13ProcessPidField}: "${node.pid}")`;
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -1854,7 +1854,7 @@ function ElasticApiView({ isManualMode = false }) {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
 
       // 1. Fetch Event 4688 to get Logon ID
-      let q1 = `(${logonEventCodeField}: "4688") AND (${logonProcessNameField}: "${searchProcessName}") AND (${logonProcessPidField}: "${searchProcessPid}")`;
+      let q1 = `(${logonEventCodeField}: "4688") AND (${logonProcessNameField}: "${escapeElastic(searchProcessName)}") AND (${logonProcessPidField}: "${searchProcessPid}")`;
       const res1 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
@@ -1883,7 +1883,7 @@ function ElasticApiView({ isManualMode = false }) {
       }
 
       // 2. Fetch Event 4624 using Logon ID
-      let q2 = `(${logonEventCodeField}: "4624") AND (${logonIdField}: "${logonId}")`;
+      let q2 = `(${logonEventCodeField}: "4624") AND (${logonIdField}: "${escapeElastic(logonId)}")`;
       const res2 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
