@@ -2145,8 +2145,8 @@ function SplunkApiView({ isManualMode = false }) {
         <div className="card">
           <h2>Kết Nối API</h2>
           <div className="input-group">
-            <label>Elastic URL:</label>
-            <input type="text" value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="http://10.48.144.79:9200" />
+            <label>Splunk URL:</label>
+            <input type="text" value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="https://localhost:8089" />
           </div>
           <div className="api-config-grid">
             <div className="input-group">
@@ -2175,12 +2175,15 @@ function SplunkApiView({ isManualMode = false }) {
               {connectionStatus.message}
             </div>
           )}
+        </div>
+        )}
 
-
+        <div className="card">
+          <h2>Cấu Hình Index</h2>
           <div className="input-group">
-            <label>Index Pattern (Gõ tự do hoặc chọn ở dưới):</label>
+            <label>Tên Index (Index Name):</label>
             <input type="text" value={indexPattern} onChange={e => setIndexPattern(e.target.value)} />
-            {availableIndices.length > 0 && (
+            {availableIndices.length > 0 && !isManualMode && (
               <select 
                 onChange={(e) => {
                   setIndexPattern(e.target.value);
@@ -2194,7 +2197,6 @@ function SplunkApiView({ isManualMode = false }) {
             )}
           </div>
         </div>
-        )}
 
         <div className="card">
           <h2 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
