@@ -439,6 +439,48 @@ function SplunkApiView({ isManualMode = false }) {
     }
   };
 
+
+  const handleAddRoot = async () => {
+    if (!searchProcessName && !searchProcessPid) {
+      alert("Vui lòng nhập Process Name hoặc PID để bắt đầu!");
+      return;
+    }
+    setIsBuilding(true);
+    let queryStr = '';
+    let conditions = [`${eventCodeField}="1"`];
+    if (searchProcessName) conditions.push(`${processNameField}="${escapeSplunk(searchProcessName)}"`);
+    if (searchProcessPid) conditions.push(`${processPidField}="${searchProcessPid}"`);
+    queryStr = conditions.join(" ");
+
+    try {
+      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+      const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+          'x-target-url': getFormatUrl(apiUrl)
+        },
+        body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${parentNameField}, ${parentPidField}, ${processNameField}, ${processPidField}${extraField ? ", " + extraField : ""}`
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.hits && data.hits.hits) {
+        processHits(data.hits.hits);
+      } else {
+        alert("Không tìm thấy tiến trình nào!");
+      }
+    } catch (error) {
+      alert("Lỗi khi gọi API: " + error.message);
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
   const handleDeleteBranch = (nodeId) => {
     let currentNodes = { ...nodes };
     const nodeVals = Object.values(currentNodes);
@@ -2366,6 +2408,15 @@ function SplunkApiView({ isManualMode = false }) {
             >
               {isBuilding ? '⏳ Đang xử lý...' : (Object.keys(nodes).length === 0 ? '🚀 Build Cây Mới' : '🔍 Auto Bulk Expand')}
             </button>
+            {Object.keys(nodes).length > 0 && (
+              <button 
+                onClick={handleAddRoot} 
+                disabled={isBuilding}
+                style={{ flex: 0.5, backgroundColor: isBuilding ? 'var(--text-secondary)' : '#10b981' }}
+              >
+                ➕ Thêm Cây Gốc
+              </button>
+            )}
             {Object.keys(nodes).length > 0 && (
               <div style={{ position: 'relative' }}>
                 <button 
