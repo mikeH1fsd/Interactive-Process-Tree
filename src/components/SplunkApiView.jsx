@@ -302,12 +302,44 @@ function SplunkApiView({ isManualMode = false }) {
   };
 
   // Parse result hits to update nodes
+  const parseSplunkTime = (tStr) => {
+    if (!tStr) return 0;
+    // Format: "Sep 26, 2023 @ 15:43:49.704" or similar
+    let cleanStr = tStr.replace(' @ ', ' ');
+    const t = new Date(cleanStr).getTime();
+    if (!isNaN(t)) return t;
+    
+    // Fallback manual parse for Safari/Firefox
+    // Expected: "Sep 26, 2023 15:43:49.704"
+    const parts = cleanStr.match(/([a-zA-Z]+)\s+(\d+),\s+(\d+)\s+(\d+):(\d+):(\d+)(?:\.(\d+))?/);
+    if (parts) {
+      const months = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+      const month = months[parts[1].substring(0, 3)] || 0;
+      const day = parseInt(parts[2], 10);
+      const year = parseInt(parts[3], 10);
+      const h = parseInt(parts[4], 10);
+      const m = parseInt(parts[5], 10);
+      const s = parseInt(parts[6], 10);
+      const ms = parts[7] ? parseInt(parts[7].padEnd(3, '0').substring(0, 3), 10) : 0;
+      return new Date(year, month, day, h, m, s, ms).getTime();
+    }
+    return 0;
+  };
+
+
+
   const processHits = (hits) => {
     let currentNodes = { ...nodes };
-    hits.forEach(hit => {
+    const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    
+    const sortedHits = [...hits].sort((a, b) => {
+      const timeA = parseSplunkTime(getNested(a._source, '_time') || getNested(a._source, '@timestamp'));
+      const timeB = parseSplunkTime(getNested(b._source, '_time') || getNested(b._source, '@timestamp'));
+      return timeA - timeB;
+    });
+
+    sortedHits.forEach(hit => {
       const source = hit._source;
-      const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
-      
       const evtCode = getNested(source, eventCodeField)?.toString();
       if (evtCode === '1') {
         const pName = getNested(source, processNameField) || 'Unknown';
@@ -331,6 +363,25 @@ function SplunkApiView({ isManualMode = false }) {
 
         const processId = `${pName}_${pPid}`;
         const parentId = `${parentName}_${parentPid}`;
+        const eventTime = parseSplunkTime(time);
+
+        if (currentNodes[parentId] && currentNodes[parentId].time) {
+          const parentTime = parseSplunkTime(currentNodes[parentId].time);
+          if (eventTime > 0 && parentTime > 0 && eventTime < parentTime) {
+            if (currentNodes[parentId].name === "-" || currentNodes[parentId].name === "Unknown") {
+              currentNodes[parentId].time = time;
+            } else {
+              return; 
+            }
+          }
+        }
+
+        if (currentNodes[processId] && currentNodes[processId].time) {
+          const nodeTime = parseSplunkTime(currentNodes[processId].time);
+          if (eventTime > 0 && nodeTime > 0 && eventTime > nodeTime) {
+            return; 
+          }
+        }
 
         if (!currentNodes[processId]) {
           currentNodes[processId] = { id: processId, name: pName, pid: pPid, time: time, parents: [], children: [], extra: extraStr, fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [] };
@@ -339,7 +390,7 @@ function SplunkApiView({ isManualMode = false }) {
           if (extraStr) currentNodes[processId].extra = extraStr;
         }
         if (!currentNodes[parentId]) {
-          currentNodes[parentId] = { id: parentId, name: parentName, pid: parentPid, time: '', parents: [], children: [], extra: '', fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [] };
+          currentNodes[parentId] = { id: parentId, name: parentName, pid: parentPid, time: time, parents: [], children: [], extra: '', fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [] };
         }
         
         if (!currentNodes[parentId].children.includes(processId)) {
@@ -397,16 +448,22 @@ function SplunkApiView({ isManualMode = false }) {
 
       const rootQueries = roots.map(root => {
         const excludeChildren = getExclusionStr(root);
+        const isNameMissing = root.name === "-" || root.name === "Unknown";
+        const selfNameCond = isNameMissing ? "" : `${processNameField}="${escapeSplunk(root.name)}" AND `;
+        const parentNameCond = isNameMissing ? "" : `${parentNameField}="${escapeSplunk(root.name)}" AND `;
+
         if (isDownwardOnly) {
-           return `(${parentNameField}="${escapeSplunk(root.name)}" AND ${parentPidField}="${root.pid}"${excludeChildren})`;
+           return `(${parentNameCond}${parentPidField}="${root.pid}"${excludeChildren})`;
         } else {
-           return `((${processNameField}="${escapeSplunk(root.name)}" AND ${processPidField}="${root.pid}") OR (${parentNameField}="${escapeSplunk(root.name)}" AND ${parentPidField}="${root.pid}"${excludeChildren}))`;
+           return `((${selfNameCond}${processPidField}="${root.pid}") OR (${parentNameCond}${parentPidField}="${root.pid}"${excludeChildren}))`;
         }
       });
       
       const leafQueries = leaves.map(leaf => {
         const excludeChildren = getExclusionStr(leaf);
-        return `(${parentNameField}="${escapeSplunk(leaf.name)}" AND ${parentPidField}="${leaf.pid}"${excludeChildren})`;
+        const isNameMissing = leaf.name === "-" || leaf.name === "Unknown";
+        const parentNameCond = isNameMissing ? "" : `${parentNameField}="${escapeSplunk(leaf.name)}" AND `;
+        return `(${parentNameCond}${parentPidField}="${leaf.pid}"${excludeChildren})`;
       });
 
       let queries = [];
