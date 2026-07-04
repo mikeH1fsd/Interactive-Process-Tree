@@ -138,6 +138,7 @@ function SplunkApiView({ isManualMode = false }) {
   ]);
   const [extraField, setExtraField] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [expandedNodeId, setExpandedNodeId] = useState(null);
   const treeContainerRef = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState(null);
 
@@ -2003,7 +2004,7 @@ function SplunkApiView({ isManualMode = false }) {
       const linePrefix = prefix + (isLast ? '└── ' : '├── ');
       
       elements.push(
-        <div key={`${nodeId}-${elements.length}`} className="tree-line">
+        <div key={`${nodeId}-${elements.length}`} className="tree-line" onMouseLeave={() => setExpandedNodeId(null)}>
           <span className="tree-prefix">{linePrefix}</span>
           <span className="tree-node-text process">
             🟢 <span className="process-name">{node.name}</span>
