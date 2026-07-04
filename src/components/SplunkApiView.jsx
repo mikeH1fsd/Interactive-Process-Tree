@@ -351,7 +351,7 @@ function SplunkApiView({ isManualMode = false }) {
       let conditions = [`${eventCodeField}="1"`];
       if (searchProcessName) conditions.push(`${processNameField}="${searchProcessName}"`);
       if (searchProcessPid) conditions.push(`${processPidField}="${searchProcessPid}"`);
-      queryStr = conditions.join(" AND ");
+      queryStr = conditions.join(" ");
     } else {
       // Bulk Expand Logic
       const roots = nodeVals.filter(n => n.parents.length === 0);
@@ -405,7 +405,7 @@ function SplunkApiView({ isManualMode = false }) {
         setIsBuilding(false);
         return;
       }
-      queryStr = `(${eventCodeField}="1") AND (${queries.join(" OR ")})`;
+      queryStr = `(${eventCodeField}="1") (${queries.join(" OR ")})`;
     }
 
     try {
@@ -417,7 +417,7 @@ function SplunkApiView({ isManualMode = false }) {
           'Authorization': authHeader,
           'x-target-url': getFormatUrl(apiUrl)
         },
-        body: `search index="${indexPattern}" ${queryStr} | sort 0 _time`
+        body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${eventCodeField}, ${parentNameField}, ${parentPidField}, ${processNameField}, ${processPidField}${extraField ? ", " + extraField : ""}`
       });
 
       if (!response.ok) {
@@ -500,9 +500,9 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt3CodeField}="${evt3CodeValue}") AND (${evt3ProcessNameField}="${node.name}") AND (${evt3ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt3CodeField}="${evt3CodeValue}") (${evt3ProcessNameField}="${node.name}") (${evt3ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
-          baseStr += ` AND (${excludes.join(" AND ")})`;
+          baseStr += ` AND (${excludes.join(" ")})`;
         }
         const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
@@ -511,7 +511,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': apiUrl
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time`
+          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt3CodeField}, ${evt3ProcessNameField}, ${evt3ProcessPidField}, ${evt3ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -556,7 +556,7 @@ function SplunkApiView({ isManualMode = false }) {
             spamGroups.forEach(g => {
               const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
               if (conditions.length > 0) {
-                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                const excludeStr = `NOT (${conditions.join(" ")})`;
                 if (!excludeList.includes(excludeStr)) {
                   excludeList.push(excludeStr);
                   currentSpamExcludes.push(excludeStr);
@@ -609,9 +609,9 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt11CodeField}="${evt11CodeValue}") AND (${evt11ProcessNameField}="${node.name}") AND (${evt11ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt11CodeField}="${evt11CodeValue}") (${evt11ProcessNameField}="${node.name}") (${evt11ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
-          baseStr += ` AND (${excludes.join(" AND ")})`;
+          baseStr += ` AND (${excludes.join(" ")})`;
         }
         const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
@@ -620,7 +620,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': apiUrl
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time`
+          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt11CodeField}, ${evt11ProcessNameField}, ${evt11ProcessPidField}, ${evt11ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -664,7 +664,7 @@ function SplunkApiView({ isManualMode = false }) {
             spamGroups.forEach(g => {
               const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
               if (conditions.length > 0) {
-                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                const excludeStr = `NOT (${conditions.join(" ")})`;
                 if (!excludeList.includes(excludeStr)) {
                   excludeList.push(excludeStr);
                   currentSpamExcludes.push(excludeStr);
@@ -717,9 +717,9 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt22CodeField}="${evt22CodeValue}") AND (${evt22ProcessNameField}="${node.name}") AND (${evt22ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt22CodeField}="${evt22CodeValue}") (${evt22ProcessNameField}="${node.name}") (${evt22ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
-          baseStr += ` AND (${excludes.join(" AND ")})`;
+          baseStr += ` AND (${excludes.join(" ")})`;
         }
         const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
@@ -728,7 +728,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': getFormatUrl(apiUrl)
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time`
+          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt22CodeField}, ${evt22ProcessNameField}, ${evt22ProcessPidField}, ${evt22ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -772,7 +772,7 @@ function SplunkApiView({ isManualMode = false }) {
             spamGroups.forEach(g => {
               const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
               if (conditions.length > 0) {
-                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                const excludeStr = `NOT (${conditions.join(" ")})`;
                 if (!excludeList.includes(excludeStr)) {
                   excludeList.push(excludeStr);
                   currentSpamExcludes.push(excludeStr);
@@ -825,9 +825,9 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt13CodeField}="${evt13CodeValue}") AND (${evt13ProcessNameField}="${node.name}") AND (${evt13ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt13CodeField}="${evt13CodeValue}") (${evt13ProcessNameField}="${node.name}") (${evt13ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
-          baseStr += ` AND (${excludes.join(" AND ")})`;
+          baseStr += ` AND (${excludes.join(" ")})`;
         }
         const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
@@ -836,7 +836,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': getFormatUrl(apiUrl)
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time`
+          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt13CodeField}, ${evt13ProcessNameField}, ${evt13ProcessPidField}, ${evt13ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -880,7 +880,7 @@ function SplunkApiView({ isManualMode = false }) {
             spamGroups.forEach(g => {
               const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
               if (conditions.length > 0) {
-                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                const excludeStr = `NOT (${conditions.join(" ")})`;
                 if (!excludeList.includes(excludeStr)) {
                   excludeList.push(excludeStr);
                   currentSpamExcludes.push(excludeStr);
@@ -946,16 +946,16 @@ function SplunkApiView({ isManualMode = false }) {
         
         while (hasMore) {
           hasMore = false;
-          let queryStr = `(${evt3CodeField}="${evt3CodeValue}") AND (${chunk.join(" OR ")})`;
+          let queryStr = `(${evt3CodeField}="${evt3CodeValue}") (${chunk.join(" OR ")})`;
           if (excludeList.length > 0) {
-            queryStr += ` AND (${excludeList.join(" AND ")})`;
+            queryStr += ` AND (${excludeList.join(" ")})`;
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time`
+            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt3CodeField}, ${evt3ProcessNameField}, ${evt3ProcessPidField}, ${evt3ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1003,7 +1003,7 @@ function SplunkApiView({ isManualMode = false }) {
                 spamGroups.forEach(g => {
                   const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
                   if (conditions.length > 0) {
-                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    const excludeStr = `NOT (${conditions.join(" ")})`;
                     if (!excludeList.includes(excludeStr)) {
                       excludeList.push(excludeStr);
                       currentSpamExcludes.push(excludeStr);
@@ -1082,16 +1082,16 @@ function SplunkApiView({ isManualMode = false }) {
         
         while (hasMore) {
           hasMore = false;
-          let queryStr = `(${evt11CodeField}="${evt11CodeValue}") AND (${chunk.join(" OR ")})`;
+          let queryStr = `(${evt11CodeField}="${evt11CodeValue}") (${chunk.join(" OR ")})`;
           if (excludeList.length > 0) {
-            queryStr += ` AND (${excludeList.join(" AND ")})`;
+            queryStr += ` AND (${excludeList.join(" ")})`;
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time`
+            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt11CodeField}, ${evt11ProcessNameField}, ${evt11ProcessPidField}, ${evt11ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1139,7 +1139,7 @@ function SplunkApiView({ isManualMode = false }) {
                 spamGroups.forEach(g => {
                   const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
                   if (conditions.length > 0) {
-                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    const excludeStr = `NOT (${conditions.join(" ")})`;
                     if (!excludeList.includes(excludeStr)) {
                       excludeList.push(excludeStr);
                       currentSpamExcludes.push(excludeStr);
@@ -1217,16 +1217,16 @@ function SplunkApiView({ isManualMode = false }) {
         
         while (hasMore) {
           hasMore = false;
-          let queryStr = `(${evt22CodeField}="${evt22CodeValue}") AND (${chunk.join(" OR ")})`;
+          let queryStr = `(${evt22CodeField}="${evt22CodeValue}") (${chunk.join(" OR ")})`;
           if (excludeList.length > 0) {
-            queryStr += ` AND (${excludeList.join(" AND ")})`;
+            queryStr += ` AND (${excludeList.join(" ")})`;
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time`
+            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt22CodeField}, ${evt22ProcessNameField}, ${evt22ProcessPidField}, ${evt22ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1274,7 +1274,7 @@ function SplunkApiView({ isManualMode = false }) {
                 spamGroups.forEach(g => {
                   const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
                   if (conditions.length > 0) {
-                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    const excludeStr = `NOT (${conditions.join(" ")})`;
                     if (!excludeList.includes(excludeStr)) {
                       excludeList.push(excludeStr);
                       currentSpamExcludes.push(excludeStr);
@@ -1351,16 +1351,16 @@ function SplunkApiView({ isManualMode = false }) {
         
         while (hasMore) {
           hasMore = false;
-          let queryStr = `(${evt13CodeField}="${evt13CodeValue}") AND (${chunk.join(" OR ")})`;
+          let queryStr = `(${evt13CodeField}="${evt13CodeValue}") (${chunk.join(" OR ")})`;
           if (excludeList.length > 0) {
-            queryStr += ` AND (${excludeList.join(" AND ")})`;
+            queryStr += ` AND (${excludeList.join(" ")})`;
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time`
+            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt13CodeField}, ${evt13ProcessNameField}, ${evt13ProcessPidField}, ${evt13ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1408,7 +1408,7 @@ function SplunkApiView({ isManualMode = false }) {
                 spamGroups.forEach(g => {
                   const conditions = Object.entries(g.rawFields).map(([k, v]) => `${k}: "${v}"`);
                   if (conditions.length > 0) {
-                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    const excludeStr = `NOT (${conditions.join(" ")})`;
                     if (!excludeList.includes(excludeStr)) {
                       excludeList.push(excludeStr);
                       currentSpamExcludes.push(excludeStr);
@@ -1472,14 +1472,14 @@ function SplunkApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt4104CodeField}="${evt4104CodeValue}") AND (${evt4104ProcessPidField}="${node.pid}")`;
+        let baseStr = `(${evt4104CodeField}="${evt4104CodeValue}") (${evt4104ProcessPidField}="${node.pid}")`;
         if (excludes.length > 0) {
-          baseStr += ` AND (${excludes.join(" AND ")})`;
+          baseStr += ` AND (${excludes.join(" ")})`;
         }
         const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time`
+          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt4104CodeField}, ${evt4104ProcessPidField}, ${evt4104ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -1526,7 +1526,7 @@ function SplunkApiView({ isManualMode = false }) {
                 return `${k}: "${safeVal}"`;
               });
               if (conditions.length > 0) {
-                const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                const excludeStr = `NOT (${conditions.join(" ")})`;
                 if (!excludeList.includes(excludeStr)) {
                   excludeList.push(excludeStr);
                   currentSpamExcludes.push(excludeStr);
@@ -1592,16 +1592,16 @@ function SplunkApiView({ isManualMode = false }) {
         
         while (hasMore) {
           hasMore = false;
-          let queryStr = `(${evt4104CodeField}="${evt4104CodeValue}") AND (${chunk.join(" OR ")})`;
+          let queryStr = `(${evt4104CodeField}="${evt4104CodeValue}") (${chunk.join(" OR ")})`;
           if (excludeList.length > 0) {
-            queryStr += ` AND (${excludeList.join(" AND ")})`;
+            queryStr += ` AND (${excludeList.join(" ")})`;
           }
 
           const authHeader = 'Basic ' + btoa(`${username}:${password}`);
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time`
+            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt4104CodeField}, ${evt4104ProcessPidField}, ${evt4104ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1652,7 +1652,7 @@ function SplunkApiView({ isManualMode = false }) {
                     return `${k}: "${safeVal}"`;
                   });
                   if (conditions.length > 0) {
-                    const excludeStr = `NOT (${conditions.join(" AND ")})`;
+                    const excludeStr = `NOT (${conditions.join(" ")})`;
                     if (!excludeList.includes(excludeStr)) {
                       excludeList.push(excludeStr);
                       currentSpamExcludes.push(excludeStr);
@@ -1802,11 +1802,11 @@ function SplunkApiView({ isManualMode = false }) {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
 
       // 1. Fetch Event 4688 to get Logon ID
-      let q1 = `(${logonEventCodeField}="4688") AND (${logonProcessNameField}="${searchProcessName}") AND (${logonProcessPidField}="${searchProcessPid}")`;
+      let q1 = `(${logonEventCodeField}="4688") (${logonProcessNameField}="${searchProcessName}") (${logonProcessPidField}="${searchProcessPid}")`;
       const res1 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-        body: `search index="${indexPattern}" ${q1} | sort 0 _time`
+        body: `search index="${indexPattern}" ${q1} | sort 0 _time | table _time, ${logonEventCodeField}, ${logonIdField}, ${logonUserField}, ${logonHostField}, ${logonSourceIpField}, ${logonTypeField}`
       });
       if (!res1.ok) throw new Error(`API Error 4688: ${res1.status}`);
       const data1 = await res1.json();
@@ -1827,11 +1827,11 @@ function SplunkApiView({ isManualMode = false }) {
       }
 
       // 2. Fetch Event 4624 using Logon ID
-      let q2 = `(${logonEventCodeField}="4624") AND (${logonIdField}="${logonId}")`;
+      let q2 = `(${logonEventCodeField}="4624") (${logonIdField}="${logonId}")`;
       const res2 = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-        body: `search index="${indexPattern}" ${q2} | sort 0 _time`
+        body: `search index="${indexPattern}" ${q2} | sort 0 _time | table _time, ${logonEventCodeField}, ${logonIdField}, ${logonUserField}, ${logonHostField}, ${logonSourceIpField}, ${logonTypeField}`
       });
       if (!res2.ok) throw new Error(`API Error 4624: ${res2.status}`);
       const data2 = await res2.json();
