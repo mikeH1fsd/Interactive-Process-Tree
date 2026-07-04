@@ -515,7 +515,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': apiUrl
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt3ProcessNameField}, ${evt3ProcessPidField}, ${evt3ExtraField}`
+          body: `search index="${indexPattern}" ${baseStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt3ProcessNameField}, ${evt3ProcessPidField}, ${evt3ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -624,7 +624,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': apiUrl
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt11ProcessNameField}, ${evt11ProcessPidField}, ${evt11ExtraField}`
+          body: `search index="${indexPattern}" ${baseStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt11ProcessNameField}, ${evt11ProcessPidField}, ${evt11ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -732,7 +732,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': getFormatUrl(apiUrl)
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt22ProcessNameField}, ${evt22ProcessPidField}, ${evt22ExtraField}`
+          body: `search index="${indexPattern}" ${baseStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt22ProcessNameField}, ${evt22ProcessPidField}, ${evt22ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -840,7 +840,7 @@ function SplunkApiView({ isManualMode = false }) {
             'Authorization': authHeader,
             'x-target-url': getFormatUrl(apiUrl)
           },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt13ProcessNameField}, ${evt13ProcessPidField}, ${evt13ExtraField}`
+          body: `search index="${indexPattern}" ${baseStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt13ProcessNameField}, ${evt13ProcessPidField}, ${evt13ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -959,7 +959,7 @@ function SplunkApiView({ isManualMode = false }) {
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt3ProcessNameField}, ${evt3ProcessPidField}, ${evt3ExtraField}`
+            body: `search index="${indexPattern}" ${queryStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt3ProcessNameField}, ${evt3ProcessPidField}, ${evt3ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1095,7 +1095,7 @@ function SplunkApiView({ isManualMode = false }) {
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt11ProcessNameField}, ${evt11ProcessPidField}, ${evt11ExtraField}`
+            body: `search index="${indexPattern}" ${queryStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt11ProcessNameField}, ${evt11ProcessPidField}, ${evt11ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1230,7 +1230,7 @@ function SplunkApiView({ isManualMode = false }) {
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt22ProcessNameField}, ${evt22ProcessPidField}, ${evt22ExtraField}`
+            body: `search index="${indexPattern}" ${queryStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt22ProcessNameField}, ${evt22ProcessPidField}, ${evt22ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1364,7 +1364,7 @@ function SplunkApiView({ isManualMode = false }) {
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt13ProcessNameField}, ${evt13ProcessPidField}, ${evt13ExtraField}`
+            body: `search index="${indexPattern}" ${queryStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt13ProcessNameField}, ${evt13ProcessPidField}, ${evt13ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -1483,7 +1483,7 @@ function SplunkApiView({ isManualMode = false }) {
         const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-          body: `search index="${indexPattern}" ${baseStr} | sort 0 _time | table _time, ${evt4104ProcessPidField}, ${evt4104ExtraField}`
+          body: `search index="${indexPattern}" ${baseStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt4104ProcessPidField}, ${evt4104ExtraField}`
         });
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
         return await response.json();
@@ -1605,7 +1605,7 @@ function SplunkApiView({ isManualMode = false }) {
           const response = await executeQuery(`/elastic_api/${indexPattern}/_search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': authHeader, 'x-target-url': getFormatUrl(apiUrl) },
-            body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${evt4104ProcessPidField}, ${evt4104ExtraField}`
+            body: `search index="${indexPattern}" ${queryStr} | stats count min(_time) as firstTime max(_time) as lastTime by ${evt4104ProcessPidField}, ${evt4104ExtraField}`
           });
 
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
