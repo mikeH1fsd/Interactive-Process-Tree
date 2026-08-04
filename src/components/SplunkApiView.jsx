@@ -1,7 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 
+const useSessionStorage = (key, initialValue) => {
+  const [value, setValue] = useState(() => {
+    try {
+      const item = window.sessionStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      return initialValue;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn("sessionStorage limit exceeded");
+    }
+  }, [key, value]);
+  return [value, setValue];
+};
+
 function SplunkApiView({ isManualMode = false }) {
+  const storagePrefix = isManualMode ? 'splunk_manual_' : 'splunk_api_';
   const escapeSplunk = (str) => (str || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
   const [apiUrl, setApiUrl] = useState('http://10.48.144.79:9200');
@@ -105,7 +125,7 @@ function SplunkApiView({ isManualMode = false }) {
   const [logonTypeField, setLogonTypeField] = useState('LogonType');
   
   // Logon Context State
-  const [logonContext, setLogonContext] = useState(null);
+  const [logonContext, setLogonContext] = useSessionStorage(storagePrefix + 'logonContext', null);
   const [isFetchingLogon, setIsFetchingLogon] = useState(false);
 
   // UI States
@@ -113,15 +133,15 @@ function SplunkApiView({ isManualMode = false }) {
   const [showActionModal, setShowActionModal] = useState(false);
 
   // Tree State
-  const [nodes, setNodes] = useState({});
+  const [nodes, setNodes] = useSessionStorage(storagePrefix + 'nodes', {});
   const [isBuilding, setIsBuilding] = useState(false);
 
   // Workspace Tabs State
-  const [workspaces, setWorkspaces] = useState([
+  const [workspaces, setWorkspaces] = useSessionStorage(storagePrefix + 'workspaces', [
     { id: 'root', name: '🌳 Cây Gốc', isDownwardOnly: false }
   ]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('root');
-  const [workspaceData, setWorkspaceData] = useState({ 'root': {} });
+  const [activeWorkspaceId, setActiveWorkspaceId] = useSessionStorage(storagePrefix + 'activeWorkspaceId', 'root');
+  const [workspaceData, setWorkspaceData] = useSessionStorage(storagePrefix + 'workspaceData', { 'root': {} });
   const workspaceInputsRef = useRef({});
 
   const getFormatUrl = (url) => {

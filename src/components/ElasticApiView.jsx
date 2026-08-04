@@ -1,7 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 
+const useSessionStorage = (key, initialValue) => {
+  const [value, setValue] = useState(() => {
+    try {
+      const item = window.sessionStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      return initialValue;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn("sessionStorage limit exceeded");
+    }
+  }, [key, value]);
+  return [value, setValue];
+};
+
 function ElasticApiView({ isManualMode = false }) {
+  const storagePrefix = isManualMode ? 'elastic_manual_' : 'elastic_api_';
   const [apiUrl, setApiUrl] = useState('http://10.48.144.79:9200');
   const [username, setUsername] = useState('elastic');
   const [password, setPassword] = useState('elastic');
@@ -103,7 +123,7 @@ function ElasticApiView({ isManualMode = false }) {
   const [logonTypeField, setLogonTypeField] = useState('winlog.event_data.LogonType');
   
   // Logon Context State
-  const [logonContext, setLogonContext] = useState(null);
+  const [logonContext, setLogonContext] = useSessionStorage(storagePrefix + 'logonContext', null);
   const [isFetchingLogon, setIsFetchingLogon] = useState(false);
 
   // UI States
@@ -111,7 +131,7 @@ function ElasticApiView({ isManualMode = false }) {
   const [showActionModal, setShowActionModal] = useState(false);
 
   // Tree State
-  const [nodes, setNodes] = useState({});
+  const [nodes, setNodes] = useSessionStorage(storagePrefix + 'nodes', {});
   const [isBuilding, setIsBuilding] = useState(false);
 
   const escapeElastic = (str) => {
@@ -120,11 +140,11 @@ function ElasticApiView({ isManualMode = false }) {
   };
 
   // Workspace Tabs State
-  const [workspaces, setWorkspaces] = useState([
+  const [workspaces, setWorkspaces] = useSessionStorage(storagePrefix + 'workspaces', [
     { id: 'root', name: '🌳 Cây Gốc', isDownwardOnly: false }
   ]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('root');
-  const [workspaceData, setWorkspaceData] = useState({ 'root': {} });
+  const [activeWorkspaceId, setActiveWorkspaceId] = useSessionStorage(storagePrefix + 'activeWorkspaceId', 'root');
+  const [workspaceData, setWorkspaceData] = useSessionStorage(storagePrefix + 'workspaceData', { 'root': {} });
   const workspaceInputsRef = useRef({});
 
   const getFormatUrl = (url) => {
