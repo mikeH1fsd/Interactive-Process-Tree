@@ -388,7 +388,7 @@ function SplunkApiView({ isManualMode = false }) {
         if (currentNodes[parentId] && currentNodes[parentId].time) {
           const parentTime = parseSplunkTime(currentNodes[parentId].time);
           if (eventTime > 0 && parentTime > 0 && eventTime < parentTime) {
-            if (currentNodes[parentId].name === "-" || currentNodes[parentId].name === "Unknown") {
+            if (!currentNodes[parentId].isRealTime) {
               currentNodes[parentId].time = time;
             } else {
               return; 
@@ -404,13 +404,21 @@ function SplunkApiView({ isManualMode = false }) {
         }
 
         if (!currentNodes[processId]) {
-          currentNodes[processId] = { id: processId, name: pName, pid: pPid, time: time, parents: [], children: [], extra: extraStr, fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [] };
+          currentNodes[processId] = { id: processId, name: pName, pid: pPid, time: time, parents: [], children: [], extra: extraStr, fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [], isRealTime: true };
         } else {
-          if (time) currentNodes[processId].time = time;
+          if (time) {
+            currentNodes[processId].time = time;
+            currentNodes[processId].isRealTime = true;
+          }
           if (extraStr) currentNodes[processId].extra = extraStr;
         }
+        
         if (!currentNodes[parentId]) {
-          currentNodes[parentId] = { id: parentId, name: parentName, pid: parentPid, time: time, parents: [], children: [], extra: '', fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [] };
+          currentNodes[parentId] = { id: parentId, name: parentName, pid: parentPid, time: time, parents: [], children: [], extra: '', fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [], isRealTime: false };
+        } else {
+          if ((currentNodes[parentId].name === "-" || currentNodes[parentId].name === "Unknown") && parentName !== "-" && parentName !== "Unknown") {
+            currentNodes[parentId].name = parentName;
+          }
         }
         
         if (!currentNodes[parentId].children.includes(processId)) {
