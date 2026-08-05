@@ -35,6 +35,8 @@ function SplunkApiView({ isManualMode = false }) {
   const [parentPidField, setParentPidField] = useSessionStorage(storagePrefix + 'parentPidField', 'ParentProcessId');
   const [processNameField, setProcessNameField] = useSessionStorage(storagePrefix + 'processNameField', 'Image');
   const [processPidField, setProcessPidField] = useSessionStorage(storagePrefix + 'processPidField', 'ProcessId');
+  const [parentGuidField, setParentGuidField] = useSessionStorage(storagePrefix + 'parentGuidField', 'ParentProcessGuid');
+  const [processGuidField, setProcessGuidField] = useSessionStorage(storagePrefix + 'processGuidField', 'ProcessGuid');
 
   // Search
   const [searchProcessName, setSearchProcessName] = useState('');
@@ -381,36 +383,25 @@ function SplunkApiView({ isManualMode = false }) {
         }
         const extraStr = extraVals.join(' | ');
 
-        const processId = `${pName}_${pPid}`;
-        const parentId = `${parentName}_${parentPid}`;
-        const eventTime = parseSplunkTime(time);
+        const pGuid = getNested(source, processGuidField);
+        const parentGuid = getNested(source, parentGuidField);
 
-        if (currentNodes[parentId] && currentNodes[parentId].time) {
-          const parentTime = parseSplunkTime(currentNodes[parentId].time);
-          if (eventTime > 0 && parentTime > 0 && eventTime < parentTime) {
-            if (!currentNodes[parentId].isRealTime) {
-              currentNodes[parentId].time = time;
-            } else {
-              return; 
-            }
-          }
-        }
-
-        if (currentNodes[processId] && currentNodes[processId].time) {
-          const nodeTime = parseSplunkTime(currentNodes[processId].time);
-          if (eventTime > 0 && nodeTime > 0 && eventTime > nodeTime) {
-            return; 
-          }
-        }
+        const processId = pGuid ? pGuid : `${pName}_${pPid}`;
+        const parentId = parentGuid ? parentGuid : `${parentName}_${parentPid}`;
 
         if (!currentNodes[processId]) {
           currentNodes[processId] = { id: processId, name: pName, pid: pPid, time: time, parents: [], children: [], extra: extraStr, fileEvents: [], regEvents: [], dnsEvents: [], networkEvents: [], isRealTime: true };
         } else {
-          if (time) {
+          if (time && !currentNodes[processId].time) {
             currentNodes[processId].time = time;
             currentNodes[processId].isRealTime = true;
           }
           if (extraStr) currentNodes[processId].extra = extraStr;
+          
+          if (currentNodes[processId].name === "-" || currentNodes[processId].name === "Unknown") {
+            currentNodes[processId].name = pName;
+            currentNodes[processId].pid = pPid;
+          }
         }
         
         if (!currentNodes[parentId]) {
@@ -418,6 +409,7 @@ function SplunkApiView({ isManualMode = false }) {
         } else {
           if ((currentNodes[parentId].name === "-" || currentNodes[parentId].name === "Unknown") && parentName !== "-" && parentName !== "Unknown") {
             currentNodes[parentId].name = parentName;
+            currentNodes[parentId].pid = parentPid;
           }
         }
         
@@ -518,7 +510,7 @@ function SplunkApiView({ isManualMode = false }) {
           'Authorization': authHeader,
           'x-target-url': getFormatUrl(apiUrl)
         },
-        body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${parentNameField}, ${parentPidField}, ${processNameField}, ${processPidField}${extraField ? ", " + extraField : ""}`
+        body: `search index="${indexPattern}" ${queryStr} | sort 0 _time | table _time, ${parentNameField}, ${parentPidField}, ${processNameField}, ${processPidField}, ${parentGuidField}, ${processGuidField}${extraField ? ", " + extraField : ""}`
       });
 
       if (!response.ok) {
@@ -2375,6 +2367,8 @@ function SplunkApiView({ isManualMode = false }) {
               <div className="input-group"><label>Event Code Field:</label><AutocompleteInput value={eventCodeField} onChange={setEventCodeField} placeholder="event.code" suggestions={indexFields} /></div>
               <div className="input-group"><label>Parent Name:</label><AutocompleteInput value={parentNameField} onChange={setParentNameField} placeholder="process.parent.name" suggestions={indexFields} /></div>
               <div className="input-group"><label>Parent PID:</label><AutocompleteInput value={parentPidField} onChange={setParentPidField} placeholder="process.parent.pid" suggestions={indexFields} /></div>
+              <div className="input-group"><label>Parent Process Guid Field:</label><AutocompleteInput value={parentGuidField} onChange={setParentGuidField} placeholder="ParentProcessGuid" suggestions={indexFields} /></div>
+              <div className="input-group"><label>Process Guid Field:</label><AutocompleteInput value={processGuidField} onChange={setProcessGuidField} placeholder="ProcessGuid" suggestions={indexFields} /></div>
               <div className="input-group"><label>Process Name:</label><AutocompleteInput value={processNameField} onChange={setProcessNameField} placeholder="process.name" suggestions={indexFields} /></div>
               <div className="input-group"><label>Process PID:</label><AutocompleteInput value={processPidField} onChange={setProcessPidField} placeholder="process.pid" suggestions={indexFields} /></div>
               <div className="input-group"><label>Extra Field (Tuỳ chọn):</label><AutocompleteInput value={extraField} onChange={setExtraField} placeholder="Ví dụ: process.command_line..." suggestions={indexFields} multi={true} /></div>
@@ -2713,15 +2707,17 @@ function SplunkApiView({ isManualMode = false }) {
             } else {
                // Process Tree (Event 1 / 4688)
                let pOffset = isPid(parts[2]) ? 1 : 0;
-               if (parts.length >= 4 + pOffset) {
+               if (parts.length >= 6 + pOffset) {
                   if (pOffset === 1) source['@timestamp'] = parts[0].trim();
                   setNested(source, eventCodeField, '1');
                   setNested(source, parentNameField, parts[pOffset].trim());
                   setNested(source, parentPidField, parts[pOffset + 1].replace(/,/g, '').trim());
                   setNested(source, processNameField, parts[pOffset + 2].trim());
                   setNested(source, processPidField, parts[pOffset + 3].replace(/,/g, '').trim());
+                  setNested(source, parentGuidField, parts[pOffset + 4].trim());
+                  setNested(source, processGuidField, parts[pOffset + 5].trim());
                   
-                  const extraCols = parts.slice(pOffset + 4);
+                  const extraCols = parts.slice(pOffset + 6);
                   if (extraField && extraCols.length > 0) {
                     const fields = extraField.split(',').map(f => f.trim()).filter(f => f);
                     fields.forEach((f, idx) => {
