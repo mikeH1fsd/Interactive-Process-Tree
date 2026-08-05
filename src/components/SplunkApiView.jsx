@@ -24,17 +24,17 @@ function SplunkApiView({ isManualMode = false }) {
   const storagePrefix = isManualMode ? 'splunk_manual_' : 'splunk_api_';
   const escapeSplunk = (str) => (str || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
-  const [apiUrl, setApiUrl] = useState('http://10.48.144.79:9200');
-  const [username, setUsername] = useState('elastic');
-  const [password, setPassword] = useState('elastic');
-  const [indexPattern, setIndexPattern] = useState('winlogbeat-*');
+  const [apiUrl, setApiUrl] = useSessionStorage(storagePrefix + 'apiUrl', 'http://10.48.144.79:9200');
+  const [username, setUsername] = useSessionStorage(storagePrefix + 'username', 'elastic');
+  const [password, setPassword] = useSessionStorage(storagePrefix + 'password', 'elastic');
+  const [indexPattern, setIndexPattern] = useSessionStorage(storagePrefix + 'indexPattern', 'winlogbeat-*');
 
   // Fields Mapping
-  const [eventCodeField, setEventCodeField] = useState('EventCode');
-  const [parentNameField, setParentNameField] = useState('ParentImage');
-  const [parentPidField, setParentPidField] = useState('ParentProcessId');
-  const [processNameField, setProcessNameField] = useState('Image');
-  const [processPidField, setProcessPidField] = useState('ProcessId');
+  const [eventCodeField, setEventCodeField] = useSessionStorage(storagePrefix + 'eventCodeField', 'EventCode');
+  const [parentNameField, setParentNameField] = useSessionStorage(storagePrefix + 'parentNameField', 'ParentImage');
+  const [parentPidField, setParentPidField] = useSessionStorage(storagePrefix + 'parentPidField', 'ParentProcessId');
+  const [processNameField, setProcessNameField] = useSessionStorage(storagePrefix + 'processNameField', 'Image');
+  const [processPidField, setProcessPidField] = useSessionStorage(storagePrefix + 'processPidField', 'ProcessId');
 
   // Search
   const [searchProcessName, setSearchProcessName] = useState('');
@@ -81,48 +81,48 @@ function SplunkApiView({ isManualMode = false }) {
   };
 
   // Event 3 Config
-  const [evt3CodeField, setEvt3CodeField] = useState('EventCode');
-  const [evt3CodeValue, setEvt3CodeValue] = useState('3');
-  const [evt3ProcessNameField, setEvt3ProcessNameField] = useState('Image');
-  const [evt3ProcessPidField, setEvt3ProcessPidField] = useState('ProcessId');
-  const [evt3ExtraField, setEvt3ExtraField] = useState('DestinationIp, DestinationPort');
+  const [evt3CodeField, setEvt3CodeField] = useSessionStorage(storagePrefix + 'evt3CodeField', 'EventCode');
+  const [evt3CodeValue, setEvt3CodeValue] = useSessionStorage(storagePrefix + 'evt3CodeValue', '3');
+  const [evt3ProcessNameField, setEvt3ProcessNameField] = useSessionStorage(storagePrefix + 'evt3ProcessNameField', 'Image');
+  const [evt3ProcessPidField, setEvt3ProcessPidField] = useSessionStorage(storagePrefix + 'evt3ProcessPidField', 'ProcessId');
+  const [evt3ExtraField, setEvt3ExtraField] = useSessionStorage(storagePrefix + 'evt3ExtraField', 'DestinationIp, DestinationPort');
 
   // Event 11 Config
-  const [evt11CodeField, setEvt11CodeField] = useState('EventCode');
-  const [evt11CodeValue, setEvt11CodeValue] = useState('11');
-  const [evt11ProcessNameField, setEvt11ProcessNameField] = useState('Image');
-  const [evt11ProcessPidField, setEvt11ProcessPidField] = useState('ProcessId');
-  const [evt11ExtraField, setEvt11ExtraField] = useState('TargetFilename');
+  const [evt11CodeField, setEvt11CodeField] = useSessionStorage(storagePrefix + 'evt11CodeField', 'EventCode');
+  const [evt11CodeValue, setEvt11CodeValue] = useSessionStorage(storagePrefix + 'evt11CodeValue', '11');
+  const [evt11ProcessNameField, setEvt11ProcessNameField] = useSessionStorage(storagePrefix + 'evt11ProcessNameField', 'Image');
+  const [evt11ProcessPidField, setEvt11ProcessPidField] = useSessionStorage(storagePrefix + 'evt11ProcessPidField', 'ProcessId');
+  const [evt11ExtraField, setEvt11ExtraField] = useSessionStorage(storagePrefix + 'evt11ExtraField', 'TargetFilename');
 
   // Event 22 Config (DNS)
-  const [evt22CodeField, setEvt22CodeField] = useState('EventCode');
-  const [evt22CodeValue, setEvt22CodeValue] = useState('22');
-  const [evt22ProcessNameField, setEvt22ProcessNameField] = useState('Image');
-  const [evt22ProcessPidField, setEvt22ProcessPidField] = useState('ProcessId');
-  const [evt22ExtraField, setEvt22ExtraField] = useState('QueryName');
+  const [evt22CodeField, setEvt22CodeField] = useSessionStorage(storagePrefix + 'evt22CodeField', 'EventCode');
+  const [evt22CodeValue, setEvt22CodeValue] = useSessionStorage(storagePrefix + 'evt22CodeValue', '22');
+  const [evt22ProcessNameField, setEvt22ProcessNameField] = useSessionStorage(storagePrefix + 'evt22ProcessNameField', 'Image');
+  const [evt22ProcessPidField, setEvt22ProcessPidField] = useSessionStorage(storagePrefix + 'evt22ProcessPidField', 'ProcessId');
+  const [evt22ExtraField, setEvt22ExtraField] = useSessionStorage(storagePrefix + 'evt22ExtraField', 'QueryName');
 
   // Event 13 Config (Registry)
-  const [evt13CodeField, setEvt13CodeField] = useState('EventCode');
-  const [evt13CodeValue, setEvt13CodeValue] = useState('13');
-  const [evt13ProcessNameField, setEvt13ProcessNameField] = useState('Image');
-  const [evt13ProcessPidField, setEvt13ProcessPidField] = useState('ProcessId');
-  const [evt13ExtraField, setEvt13ExtraField] = useState('TargetObject');
+  const [evt13CodeField, setEvt13CodeField] = useSessionStorage(storagePrefix + 'evt13CodeField', 'EventCode');
+  const [evt13CodeValue, setEvt13CodeValue] = useSessionStorage(storagePrefix + 'evt13CodeValue', '13');
+  const [evt13ProcessNameField, setEvt13ProcessNameField] = useSessionStorage(storagePrefix + 'evt13ProcessNameField', 'Image');
+  const [evt13ProcessPidField, setEvt13ProcessPidField] = useSessionStorage(storagePrefix + 'evt13ProcessPidField', 'ProcessId');
+  const [evt13ExtraField, setEvt13ExtraField] = useSessionStorage(storagePrefix + 'evt13ExtraField', 'TargetObject');
 
   // Event 4104 Config (PowerShell)
-  const [evt4104CodeField, setEvt4104CodeField] = useState('EventCode');
-  const [evt4104CodeValue, setEvt4104CodeValue] = useState('4104');
-  const [evt4104ProcessPidField, setEvt4104ProcessPidField] = useState('ProcessId');
-  const [evt4104ExtraField, setEvt4104ExtraField] = useState('ScriptBlockText');
+  const [evt4104CodeField, setEvt4104CodeField] = useSessionStorage(storagePrefix + 'evt4104CodeField', 'EventCode');
+  const [evt4104CodeValue, setEvt4104CodeValue] = useSessionStorage(storagePrefix + 'evt4104CodeValue', '4104');
+  const [evt4104ProcessPidField, setEvt4104ProcessPidField] = useSessionStorage(storagePrefix + 'evt4104ProcessPidField', 'ProcessId');
+  const [evt4104ExtraField, setEvt4104ExtraField] = useSessionStorage(storagePrefix + 'evt4104ExtraField', 'ScriptBlockText');
 
   // Logon Context Config (4688 -> 4624)
-  const [logonEventCodeField, setLogonEventCodeField] = useState('EventCode');
-  const [logonProcessNameField, setLogonProcessNameField] = useState('Image');
-  const [logonProcessPidField, setLogonProcessPidField] = useState('ProcessId');
-  const [logonIdField, setLogonIdField] = useState('TargetLogonId');
-  const [logonHostField, setLogonHostField] = useState('Computer');
-  const [logonSourceIpField, setLogonSourceIpField] = useState('IpAddress');
-  const [logonUserField, setLogonUserField] = useState('TargetUserName');
-  const [logonTypeField, setLogonTypeField] = useState('LogonType');
+  const [logonEventCodeField, setLogonEventCodeField] = useSessionStorage(storagePrefix + 'logonEventCodeField', 'EventCode');
+  const [logonProcessNameField, setLogonProcessNameField] = useSessionStorage(storagePrefix + 'logonProcessNameField', 'Image');
+  const [logonProcessPidField, setLogonProcessPidField] = useSessionStorage(storagePrefix + 'logonProcessPidField', 'ProcessId');
+  const [logonIdField, setLogonIdField] = useSessionStorage(storagePrefix + 'logonIdField', 'TargetLogonId');
+  const [logonHostField, setLogonHostField] = useSessionStorage(storagePrefix + 'logonHostField', 'Computer');
+  const [logonSourceIpField, setLogonSourceIpField] = useSessionStorage(storagePrefix + 'logonSourceIpField', 'IpAddress');
+  const [logonUserField, setLogonUserField] = useSessionStorage(storagePrefix + 'logonUserField', 'TargetUserName');
+  const [logonTypeField, setLogonTypeField] = useSessionStorage(storagePrefix + 'logonTypeField', 'LogonType');
   
   // Logon Context State
   const [logonContext, setLogonContext] = useSessionStorage(storagePrefix + 'logonContext', null);
