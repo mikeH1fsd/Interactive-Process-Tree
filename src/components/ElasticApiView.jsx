@@ -685,12 +685,13 @@ function ElasticApiView({ isManualMode = false }) {
               });
             }
             const time = getNested(source, '@timestamp') || '';
-            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
             if (!allEventsMap[extraStr]) {
-              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
             } else {
-              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].count += parsedCount;
               allEventsMap[extraStr].lastTime = time;
             }
           });
@@ -798,12 +799,13 @@ function ElasticApiView({ isManualMode = false }) {
               });
             }
             const time = getNested(source, '@timestamp') || '';
-            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
             if (!allEventsMap[extraStr]) {
-              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
             } else {
-              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].count += parsedCount;
               allEventsMap[extraStr].lastTime = time;
             }
           });
@@ -910,12 +912,13 @@ function ElasticApiView({ isManualMode = false }) {
               });
             }
             const time = getNested(source, '@timestamp') || '';
-            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
             if (!allEventsMap[extraStr]) {
-              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
             } else {
-              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].count += parsedCount;
               allEventsMap[extraStr].lastTime = time;
             }
           });
@@ -1022,12 +1025,13 @@ function ElasticApiView({ isManualMode = false }) {
               });
             }
             const time = getNested(source, '@timestamp') || '';
-            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
             if (!allEventsMap[extraStr]) {
-              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
             } else {
-              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].count += parsedCount;
               allEventsMap[extraStr].lastTime = time;
             }
           });
@@ -1149,12 +1153,13 @@ function ElasticApiView({ isManualMode = false }) {
                 }
                 const time = getNested(source, '@timestamp') || '';
                 const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
                 if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
                 if (!bulkEventsMap[processId][extraStr]) {
-                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
                 } else {
-                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].count += parsedCount;
                   bulkEventsMap[processId][extraStr].lastTime = time;
                 }
               }
@@ -1291,12 +1296,13 @@ function ElasticApiView({ isManualMode = false }) {
                 }
                 const time = getNested(source, '@timestamp') || '';
                 const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
                 if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
                 if (!bulkEventsMap[processId][extraStr]) {
-                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
                 } else {
-                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].count += parsedCount;
                   bulkEventsMap[processId][extraStr].lastTime = time;
                 }
               }
@@ -1432,12 +1438,13 @@ function ElasticApiView({ isManualMode = false }) {
                 }
                 const time = getNested(source, '@timestamp') || '';
                 const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
                 if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
                 if (!bulkEventsMap[processId][extraStr]) {
-                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
                 } else {
-                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].count += parsedCount;
                   bulkEventsMap[processId][extraStr].lastTime = time;
                 }
               }
@@ -1572,12 +1579,13 @@ function ElasticApiView({ isManualMode = false }) {
                 }
                 const time = getNested(source, '@timestamp') || '';
                 const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
                 if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
                 if (!bulkEventsMap[processId][extraStr]) {
-                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
                 } else {
-                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].count += parsedCount;
                   bulkEventsMap[processId][extraStr].lastTime = time;
                 }
               }
@@ -1693,12 +1701,13 @@ function ElasticApiView({ isManualMode = false }) {
               });
             }
             const time = getNested(source, '@timestamp') || '';
-            const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
             if (!allEventsMap[extraStr]) {
-              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+              allEventsMap[extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
             } else {
-              allEventsMap[extraStr].count++;
+              allEventsMap[extraStr].count += parsedCount;
               allEventsMap[extraStr].lastTime = time;
             }
           });
@@ -1821,12 +1830,13 @@ function ElasticApiView({ isManualMode = false }) {
                 }
                 const time = getNested(source, '@timestamp') || '';
                 const extraStr = extraVals.join(' | ') || 'No Extra Data';
+                const parsedCount = parseInt(getNested(source, 'count') || 1, 10);
 
                 if (!bulkEventsMap[processId]) bulkEventsMap[processId] = {};
                 if (!bulkEventsMap[processId][extraStr]) {
-                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: 1 };
+                  bulkEventsMap[processId][extraStr] = { extraStr, rawFields, firstTime: time, lastTime: time, count: parsedCount };
                 } else {
-                  bulkEventsMap[processId][extraStr].count++;
+                  bulkEventsMap[processId][extraStr].count += parsedCount;
                   bulkEventsMap[processId][extraStr].lastTime = time;
                 }
               });
@@ -2729,6 +2739,10 @@ function ElasticApiView({ isManualMode = false }) {
                   fields.forEach((f, idx) => {
                     if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
                   });
+                  const cIdx = fields.length;
+                  if (extraCols[cIdx]) setNested(source, 'count', extraCols[cIdx].replace(/,/g, '').trim());
+                  if (extraCols[cIdx + 1]) setNested(source, 'firstTime', extraCols[cIdx + 1].trim());
+                  if (extraCols[cIdx + 2]) setNested(source, 'lastTime', extraCols[cIdx + 2].trim());
                 }
               }
             } else if (query.includes(`${eventCodeField}: "${evt22CodeValue}"`) || query.includes(`event.code: "${evt22CodeValue}"`)) {
@@ -2744,6 +2758,10 @@ function ElasticApiView({ isManualMode = false }) {
                   fields.forEach((f, idx) => {
                     if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
                   });
+                  const cIdx = fields.length;
+                  if (extraCols[cIdx]) setNested(source, 'count', extraCols[cIdx].replace(/,/g, '').trim());
+                  if (extraCols[cIdx + 1]) setNested(source, 'firstTime', extraCols[cIdx + 1].trim());
+                  if (extraCols[cIdx + 2]) setNested(source, 'lastTime', extraCols[cIdx + 2].trim());
                 }
               }
             } else if (query.includes(`${eventCodeField}: "${evt11CodeValue}"`) || query.includes(`event.code: "${evt11CodeValue}"`)) {
@@ -2759,6 +2777,10 @@ function ElasticApiView({ isManualMode = false }) {
                   fields.forEach((f, idx) => {
                     if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
                   });
+                  const cIdx = fields.length;
+                  if (extraCols[cIdx]) setNested(source, 'count', extraCols[cIdx].replace(/,/g, '').trim());
+                  if (extraCols[cIdx + 1]) setNested(source, 'firstTime', extraCols[cIdx + 1].trim());
+                  if (extraCols[cIdx + 2]) setNested(source, 'lastTime', extraCols[cIdx + 2].trim());
                 }
               }
             } else if (query.includes(`${evt4104CodeField}: "${evt4104CodeValue}"`) || query.includes(`winlog.event_id: "${evt4104CodeValue}"`)) {
@@ -2778,6 +2800,10 @@ function ElasticApiView({ isManualMode = false }) {
                   fields.forEach((f, idx) => {
                     if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
                   });
+                  const cIdx = fields.length;
+                  if (extraCols[cIdx]) setNested(source, 'count', extraCols[cIdx].replace(/,/g, '').trim());
+                  if (extraCols[cIdx + 1]) setNested(source, 'firstTime', extraCols[cIdx + 1].trim());
+                  if (extraCols[cIdx + 2]) setNested(source, 'lastTime', extraCols[cIdx + 2].trim());
                 }
               }
             } else if (query.includes(`${eventCodeField}: "${evt13CodeValue}"`) || query.includes(`event.code: "${evt13CodeValue}"`)) {
@@ -2793,6 +2819,10 @@ function ElasticApiView({ isManualMode = false }) {
                   fields.forEach((f, idx) => {
                     if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
                   });
+                  const cIdx = fields.length;
+                  if (extraCols[cIdx]) setNested(source, 'count', extraCols[cIdx].replace(/,/g, '').trim());
+                  if (extraCols[cIdx + 1]) setNested(source, 'firstTime', extraCols[cIdx + 1].trim());
+                  if (extraCols[cIdx + 2]) setNested(source, 'lastTime', extraCols[cIdx + 2].trim());
                 }
               }
             } else {
@@ -2812,8 +2842,12 @@ function ElasticApiView({ isManualMode = false }) {
                   if (extraField && extraCols.length > 0) {
                     const fields = extraField.split(',').map(f => f.trim()).filter(f => f);
                     fields.forEach((f, idx) => {
-                      if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
-                    });
+                    if (extraCols[idx]) setNested(source, f, extraCols[idx].trim());
+                  });
+                  const cIdx = fields.length;
+                  if (extraCols[cIdx]) setNested(source, 'count', extraCols[cIdx].replace(/,/g, '').trim());
+                  if (extraCols[cIdx + 1]) setNested(source, 'firstTime', extraCols[cIdx + 1].trim());
+                  if (extraCols[cIdx + 2]) setNested(source, 'lastTime', extraCols[cIdx + 2].trim());
                   }
                }
             }
