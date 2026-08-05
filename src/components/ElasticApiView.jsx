@@ -1130,9 +1130,11 @@ function ElasticApiView({ isManualMode = false }) {
               const source = hit._source;
               const pName = getNested(source, evt3ProcessNameField) || 'Unknown';
               const pPid = getNested(source, evt3ProcessPidField) || 'Unknown';
-              const processId = `${pName}_${pPid}`;
-
-              if (currentNodes[processId]) {
+              const pGuid = getNested(source, processGuidField);
+              let processId = null;
+              if (pGuid && currentNodes[pGuid]) processId = pGuid;
+              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
                 if (evt3ExtraField) {
@@ -1270,9 +1272,11 @@ function ElasticApiView({ isManualMode = false }) {
               const source = hit._source;
               const pName = getNested(source, evt11ProcessNameField) || 'Unknown';
               const pPid = getNested(source, evt11ProcessPidField) || 'Unknown';
-              const processId = `${pName}_${pPid}`;
-
-              if (currentNodes[processId]) {
+              const pGuid = getNested(source, processGuidField);
+              let processId = null;
+              if (pGuid && currentNodes[pGuid]) processId = pGuid;
+              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
                 if (evt11ExtraField) {
@@ -1409,9 +1413,11 @@ function ElasticApiView({ isManualMode = false }) {
               const source = hit._source;
               const pName = getNested(source, evt22ProcessNameField) || 'Unknown';
               const pPid = getNested(source, evt22ProcessPidField) || 'Unknown';
-              const processId = `${pName}_${pPid}`;
-
-              if (currentNodes[processId]) {
+              const pGuid = getNested(source, processGuidField);
+              let processId = null;
+              if (pGuid && currentNodes[pGuid]) processId = pGuid;
+              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
                 if (evt22ExtraField) {
@@ -1547,9 +1553,11 @@ function ElasticApiView({ isManualMode = false }) {
               const source = hit._source;
               const pName = getNested(source, evt13ProcessNameField) || 'Unknown';
               const pPid = getNested(source, evt13ProcessPidField) || 'Unknown';
-              const processId = `${pName}_${pPid}`;
-
-              if (currentNodes[processId]) {
+              const pGuid = getNested(source, processGuidField);
+              let processId = null;
+              if (pGuid && currentNodes[pGuid]) processId = pGuid;
+              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
                 if (evt13ExtraField) {
