@@ -223,6 +223,16 @@ Hãy đọc kỹ từng file, tập hợp thông tin và cho tôi biết nhận 
           </button>
 
           <button 
+            onClick={handleExportToAI}
+            style={{ padding: '8px 15px', backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.2s', marginLeft: '5px' }}
+            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.2)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.1)'; }}
+            title="Đóng gói Process Tree xuất cho AI phân tích"
+          >
+            <span>🤖</span> Export cho AI
+          </button>
+
+          <button 
             onClick={handleExport}
             style={{ padding: '8px 15px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.2s', marginLeft: '5px' }}
             onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.2)'; }}
