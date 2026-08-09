@@ -1104,7 +1104,7 @@ function SplunkApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
@@ -1243,7 +1243,7 @@ function SplunkApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
@@ -1381,7 +1381,7 @@ function SplunkApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
@@ -1518,7 +1518,7 @@ function SplunkApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => n.name === pName && n.pid === pPid); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
