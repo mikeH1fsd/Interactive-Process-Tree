@@ -2511,15 +2511,19 @@ function SplunkApiView({ isManualMode = false }) {
         <div className="card full-height">
           <h2>Tự Động Build Process Tree {activeWorkspaceId !== 'root' ? '(Chế độ Nhánh - Bỏ qua tìm Cha)' : ''}</h2>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>
-              <input 
-                type="checkbox" 
-                checked={isCaseSensitiveMatch} 
-                onChange={(e) => setIsCaseSensitiveMatch(e.target.checked)} 
-                style={{ cursor: 'pointer' }}
-              />
-              <span>Phân biệt hoa thường (Case-Sensitive Match) khi gắn Event</span>
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <label className="toggle-switch">
+                <input 
+                  type="checkbox" 
+                  checked={isCaseSensitiveMatch} 
+                  onChange={(e) => setIsCaseSensitiveMatch(e.target.checked)} 
+                />
+                <span className="toggle-slider"></span>
+              </label>
+              <span style={{ fontSize: '14px', color: isCaseSensitiveMatch ? 'var(--primary)' : 'var(--text-secondary)', transition: 'color 0.3s', fontWeight: isCaseSensitiveMatch ? 'bold' : 'normal' }}>
+                Phân biệt hoa thường (Case-Sensitive Match) khi gắn Event
+              </span>
+            </div>
           </div>
           <div className="api-config-grid" style={{ marginBottom: '15px' }}>
             <div className="input-group" style={{ marginBottom: 0 }}>
