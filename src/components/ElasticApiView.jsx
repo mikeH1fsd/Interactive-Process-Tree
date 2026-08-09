@@ -146,6 +146,7 @@ function ElasticApiView({ isManualMode = false }) {
     { id: 'root', name: '🌳 Cây Gốc', isDownwardOnly: false }
   ]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useSessionStorage(storagePrefix + 'activeWorkspaceId', 'root');
+  const [isCaseSensitiveMatch, setIsCaseSensitiveMatch] = useSessionStorage(storagePrefix + 'isCaseSensitiveMatch', false);
   const [workspaceData, setWorkspaceData] = useSessionStorage(storagePrefix + 'workspaceData', { 'root': {} });
   const workspaceInputsRef = useRef({});
 
@@ -1137,7 +1138,7 @@ function ElasticApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (isCaseSensitiveMatch ? n.name === pName : (n.name || '').toLowerCase() === (pName || '').toLowerCase()) && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
@@ -1280,7 +1281,7 @@ function ElasticApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (isCaseSensitiveMatch ? n.name === pName : (n.name || '').toLowerCase() === (pName || '').toLowerCase()) && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
@@ -1422,7 +1423,7 @@ function ElasticApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (isCaseSensitiveMatch ? n.name === pName : (n.name || '').toLowerCase() === (pName || '').toLowerCase()) && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
@@ -1563,7 +1564,7 @@ function ElasticApiView({ isManualMode = false }) {
               const pGuid = getNested(source, processGuidField);
               let processId = null;
               if (pGuid && currentNodes[pGuid]) processId = pGuid;
-              else { const n = Object.values(currentNodes).find(n => (n.name || '').toLowerCase() === (pName || '').toLowerCase() && String(n.pid) === String(pPid)); if (n) processId = n.id; }
+              else { const n = Object.values(currentNodes).find(n => (isCaseSensitiveMatch ? n.name === pName : (n.name || '').toLowerCase() === (pName || '').toLowerCase()) && String(n.pid) === String(pPid)); if (n) processId = n.id; }
               if (processId && currentNodes[processId]) {
                 let extraVals = [];
                 let rawFields = {};
@@ -2568,6 +2569,17 @@ function ElasticApiView({ isManualMode = false }) {
 
         <div className="card full-height">
           <h2>Tự Động Build Process Tree {activeWorkspaceId !== 'root' ? '(Chế độ Nhánh - Bỏ qua tìm Cha)' : ''}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              <input 
+                type="checkbox" 
+                checked={isCaseSensitiveMatch} 
+                onChange={(e) => setIsCaseSensitiveMatch(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              <span>Phân biệt hoa thường (Case-Sensitive Match) khi gắn Event</span>
+            </label>
+          </div>
           <div className="api-config-grid" style={{ marginBottom: '15px' }}>
             <div className="input-group" style={{ marginBottom: 0 }}>
               <label>Tên Tiến trình (Process Name):</label>
