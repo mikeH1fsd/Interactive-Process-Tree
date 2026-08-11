@@ -642,7 +642,12 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt3CodeField}: "${evt3CodeValue}") AND (${evt3ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt3ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt3CodeField}: "${evt3CodeValue}") AND `;
+        if (processGuidField && node.id && node.id !== node.name + '_' + node.pid) {
+            baseStr += `(${processGuidField}: "${node.id}")`;
+        } else {
+            baseStr += `(${evt3ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt3ProcessPidField}: "${node.pid}")`;
+        }
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -756,7 +761,12 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt11CodeField}: "${evt11CodeValue}") AND (${evt11ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt11ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt11CodeField}: "${evt11CodeValue}") AND `;
+        if (processGuidField && node.id && node.id !== node.name + '_' + node.pid) {
+            baseStr += `(${processGuidField}: "${node.id}")`;
+        } else {
+            baseStr += `(${evt11ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt11ProcessPidField}: "${node.pid}")`;
+        }
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -869,7 +879,12 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt22CodeField}: "${evt22CodeValue}") AND (${evt22ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt22ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt22CodeField}: "${evt22CodeValue}") AND `;
+        if (processGuidField && node.id && node.id !== node.name + '_' + node.pid) {
+            baseStr += `(${processGuidField}: "${node.id}")`;
+        } else {
+            baseStr += `(${evt22ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt22ProcessPidField}: "${node.pid}")`;
+        }
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -982,7 +997,12 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt13CodeField}: "${evt13CodeValue}") AND (${evt13ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt13ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt13CodeField}: "${evt13CodeValue}") AND `;
+        if (processGuidField && node.id && node.id !== node.name + '_' + node.pid) {
+            baseStr += `(${processGuidField}: "${node.id}")`;
+        } else {
+            baseStr += `(${evt13ProcessNameField}: "${escapeElastic(node.name)}") AND (${evt13ProcessPidField}: "${node.pid}")`;
+        }
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -1093,7 +1113,12 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt3ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt3ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}: "${n.id}")`;
+        }
+        return `(${evt3ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt3ProcessPidField}: "${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1236,7 +1261,12 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt11ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt11ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}: "${n.id}")`;
+        }
+        return `(${evt11ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt11ProcessPidField}: "${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1378,7 +1408,12 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt22ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt22ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}: "${n.id}")`;
+        }
+        return `(${evt22ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt22ProcessPidField}: "${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1519,7 +1554,12 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt13ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt13ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}: "${n.id}")`;
+        }
+        return `(${evt13ProcessNameField}: "${escapeElastic(n.name)}" AND ${evt13ProcessPidField}: "${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1662,7 +1702,12 @@ function ElasticApiView({ isManualMode = false }) {
       const allEventsMap = {};
       
       const fetchWithExclude = async (excludes) => {
-        let baseStr = `(${evt4104CodeField}: "${evt4104CodeValue}") AND (${evt4104ProcessPidField}: "${node.pid}")`;
+        let baseStr = `(${evt4104CodeField}: "${evt4104CodeValue}") AND `;
+        if (processGuidField && node.id && node.id !== node.name + '_' + node.pid) {
+            baseStr += `(${processGuidField}: "${node.id}")`;
+        } else {
+            baseStr += `(${evt4104ProcessPidField}: "${node.pid}")`;
+        }
         if (excludes.length > 0) {
           baseStr += ` AND (${excludes.join(" AND ")})`;
         }
@@ -1772,7 +1817,12 @@ function ElasticApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt4104ProcessPidField}: "${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}: "${n.id}")`;
+        }
+        return `(${evt4104ProcessPidField}: "${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);

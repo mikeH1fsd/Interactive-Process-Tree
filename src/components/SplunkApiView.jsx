@@ -1064,7 +1064,12 @@ function SplunkApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt3ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt3ProcessPidField}="${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}="${n.id}")`;
+        }
+        return `(${evt3ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt3ProcessPidField}="${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1203,7 +1208,12 @@ function SplunkApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt11ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt11ProcessPidField}="${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}="${n.id}")`;
+        }
+        return `(${evt11ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt11ProcessPidField}="${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1341,7 +1351,12 @@ function SplunkApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt22ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt22ProcessPidField}="${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}="${n.id}")`;
+        }
+        return `(${evt22ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt22ProcessPidField}="${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1478,7 +1493,12 @@ function SplunkApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt13ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt13ProcessPidField}="${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}="${n.id}")`;
+        }
+        return `(${evt13ProcessNameField}="${escapeSplunk(n.name)}" AND ${evt13ProcessPidField}="${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -1723,7 +1743,12 @@ function SplunkApiView({ isManualMode = false }) {
       return;
     }
 
-    const nodeQueries = nodeVals.map(n => `(${evt4104ProcessPidField}="${n.pid}")`);
+    const nodeQueries = nodeVals.map(n => {
+        if (processGuidField && n.id && n.id !== n.name + '_' + n.pid) {
+            return `(${processGuidField}="${n.id}")`;
+        }
+        return `(${evt4104ProcessPidField}="${n.pid}")`;
+    });
     const chunkSize = 100;
     let currentNodes = { ...nodes };
     const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
