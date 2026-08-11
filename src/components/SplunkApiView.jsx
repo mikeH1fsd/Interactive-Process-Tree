@@ -2835,13 +2835,18 @@ function SplunkApiView({ isManualMode = false }) {
             />
             
             <strong style={{ marginTop: '15px' }}>Dán Kết Quả Trả Về (Dạng Bảng / CSV / JSON) vào đây:</strong>
-            <p style={{ color: '#fbbf24', fontSize: '12px', margin: '5px 0' }}>
-              💡 <strong>Hỗ trợ dán dạng bảng (như tool cũ):</strong><br/>
-              - Build Cây: <code>Thời Gian | Parent Name | Parent PID | Process Name | Process PID | Extra (nếu có)</code><br/>
-              - Quét Network: <code>Process Name | PID | Source IP | Dest IP | Extra</code><br/>
-              - Quét File: <code>Thời Gian | Process Name | PID | File Path | Extra</code><br/>
-              - Quét DNS: <code>Process Name | PID | DNS Question | DNS Answer | Extra</code>
-            </p>
+            <div style={{ backgroundColor: 'rgba(251, 191, 36, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(251, 191, 36, 0.3)', margin: '10px 0' }}>
+              <strong style={{ color: '#fbbf24', fontSize: '13px' }}>💡 THỨ TỰ CÁC CỘT BẮT BUỘC (Dựa theo cấu hình Mapping của bạn):</strong>
+              <div style={{ color: '#fbbf24', fontSize: '12px', marginTop: '5px', lineHeight: '1.6' }}>
+                <div><strong>🌳 Build Cây (1):</strong> <code>[Thời Gian] | {parentNameField} | {parentPidField} | {processNameField} | {processPidField} | {parentGuidField} (Tùy chọn) | {processGuidField} (Tùy chọn)</code></div>
+                <div><strong>📡 Network (3):</strong> <code>[Thời Gian] | {evt3ProcessNameField} | {evt3ProcessPidField} | {evt3ExtraField.split(',').map(s=>s.trim()).join(' | ')} | [Count] | [FirstTime] | [LastTime]</code></div>
+                <div><strong>📄 File (11):</strong> <code>[Thời Gian] | {evt11ProcessNameField} | {evt11ProcessPidField} | {evt11ExtraField.split(',').map(s=>s.trim()).join(' | ')} | [Count] | [FirstTime] | [LastTime]</code></div>
+                <div><strong>🔑 Registry (12,13,14):</strong> <code>[Thời Gian] | {evt13ProcessNameField} | {evt13ProcessPidField} | {evt13ExtraField.split(',').map(s=>s.trim()).join(' | ')} | [Count] | [FirstTime] | [LastTime]</code></div>
+                <div><strong>🌐 DNS (22):</strong> <code>[Thời Gian] | {evt22ProcessNameField} | {evt22ProcessPidField} | {evt22ExtraField.split(',').map(s=>s.trim()).join(' | ')} | [Count] | [FirstTime] | [LastTime]</code></div>
+                <div><strong>💻 PowerShell (4104):</strong> <code>[Thời Gian] | [Process Name] | {evt4104ProcessPidField} | {evt4104ExtraField.split(',').map(s=>s.trim()).join(' | ')} | [Count] | [FirstTime] | [LastTime]</code></div>
+                <i style={{ color: 'var(--text-secondary)' }}>(Lưu ý: Các cột nằm trong ngoặc vuông [] là TÙY CHỌN, nếu có thì Paste, không có thì bỏ qua)</i>
+              </div>
+            </div>
             <textarea 
               value={manualResponseInput}
               onChange={(e) => setManualResponseInput(e.target.value)}
