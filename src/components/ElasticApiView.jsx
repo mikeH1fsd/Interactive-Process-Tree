@@ -472,9 +472,18 @@ function ElasticApiView({ isManualMode = false }) {
 
       const rootQueries = roots.map(root => {
         const excludeChildren = getExclusionStr(root);
+        
+        if (processGuidField && parentGuidField && root.id && !root.id.includes('_')) {
+            if (isDownwardOnly) {
+               return `(${parentGuidField}: "${root.id}"${excludeChildren})`;
+            } else {
+               return `((${processGuidField}: "${root.id}") OR (${parentGuidField}: "${root.id}"${excludeChildren}))`;
+            }
+        }
+        
         const isNameMissing = root.name === "-" || root.name === "Unknown";
-        const selfNameCond = isNameMissing ? "" : `${processNameField}: "${root.name}" AND `;
-        const parentNameCond = isNameMissing ? "" : `${parentNameField}: "${root.name}" AND `;
+        const selfNameCond = isNameMissing ? "" : `${processNameField}: "${escapeElastic(root.name)}" AND `;
+        const parentNameCond = isNameMissing ? "" : `${parentNameField}: "${escapeElastic(root.name)}" AND `;
 
         if (isDownwardOnly) {
            return `(${parentNameCond}${parentPidField}: "${root.pid}"${excludeChildren})`;
@@ -485,6 +494,11 @@ function ElasticApiView({ isManualMode = false }) {
       
       const leafQueries = leaves.map(leaf => {
         const excludeChildren = getExclusionStr(leaf);
+        
+        if (parentGuidField && leaf.id && !leaf.id.includes('_')) {
+            return `(${parentGuidField}: "${leaf.id}"${excludeChildren})`;
+        }
+        
         const isNameMissing = leaf.name === "-" || leaf.name === "Unknown";
         const parentNameCond = isNameMissing ? "" : `${parentNameField}: "${escapeElastic(leaf.name)}" AND `;
         return `(${parentNameCond}${parentPidField}: "${leaf.pid}"${excludeChildren})`;
